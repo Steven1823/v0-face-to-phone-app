@@ -17,13 +17,17 @@ import {
   Zap,
   MessageCircle,
   Building,
+  Globe,
+  Users,
 } from "lucide-react"
 import { AnimatedSplash } from "@/components/animated-splash"
 import { EnhancedChatbot } from "@/components/enhanced-chatbot"
 import { AIHeadcard } from "@/components/ai-headcard"
+import { eventLogger } from "@/lib/event-logger"
 
 export default function HomePage() {
   const router = useRouter()
+  const [showAIDemo, setShowAIDemo] = useState(false)
 
   useEffect(() => {
     // Check if user is already logged in
@@ -31,6 +35,16 @@ export default function HomePage() {
     if (currentUserId) {
       router.push("/dashboard")
     }
+
+    // Generate sample events for demo
+    eventLogger.generateSampleEvents()
+
+    // Show AI headcard demo after 5 seconds
+    const timer = setTimeout(() => {
+      setShowAIDemo(true)
+    }, 5000)
+
+    return () => clearTimeout(timer)
   }, [router])
 
   const handleGetStarted = () => {
@@ -46,11 +60,17 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen animated-bg">
+    <div className="min-h-screen animated-bg african-textile">
       <AnimatedSplash />
       <PWAInstaller />
       <EnhancedChatbot />
-      <AIHeadcard isVisible={false} onClose={() => {}} alertType="call" userName="Demo User" />
+      <AIHeadcard 
+        isVisible={showAIDemo} 
+        onClose={() => setShowAIDemo(false)} 
+        alertType="suspicious" 
+        userName="Demo User"
+        language="en"
+      />
 
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-10">
         <Shield className="floating-icon absolute top-20 left-10 w-6 h-6 text-primary/20" />
@@ -236,7 +256,10 @@ export default function HomePage() {
 
         {/* New Features Highlight */}
         <div className="text-center mb-12">
-          <h3 className="text-3xl font-bold text-foreground mb-8">Enhanced Features</h3>
+          <h3 className="text-3xl font-bold text-foreground mb-4">🚀 Enhanced Features</h3>
+          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Production-ready features designed for African fintech innovation
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <Card className="glass border-primary/20 glow">
@@ -246,7 +269,7 @@ export default function HomePage() {
                   <span>USSD Support</span>
                 </CardTitle>
                 <CardDescription>
-                  Complete *123# menu system for feature phones with transaction verification and account management
+                  Complete *123# menu system for feature phones with transaction verification, fraud reporting, and emergency account locking
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -258,7 +281,7 @@ export default function HomePage() {
                   <span>AI Fraud Coach</span>
                 </CardTitle>
                 <CardDescription>
-                  Bilingual chatbot with English & Swahili support providing real-time fraud prevention tips
+                  Bilingual chatbot (English & Swahili) with proactive fraud tips, emergency actions, and 24/7 support
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -270,7 +293,65 @@ export default function HomePage() {
                   <span>Business Analytics</span>
                 </CardTitle>
                 <CardDescription>
-                  Comprehensive dashboard with revenue tracking, fraud analytics, and staff management tools
+                  Real-time business intelligence with revenue tracking, risk analytics, and multi-role staff management
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </div>
+
+        {/* AI & Security Features */}
+        <div className="text-center mb-12">
+          <h3 className="text-3xl font-bold text-foreground mb-4">🤖 AI-Powered Security</h3>
+          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Advanced artificial intelligence protecting African financial transactions
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card className="glass border-destructive/20 glow-red">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-destructive">
+                  <AlertTriangle className="w-6 h-6" />
+                  <span>SMS Scanning</span>
+                </CardTitle>
+                <CardDescription>
+                  AI detects fraud keywords in SMS messages and raises instant alerts
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="glass border-primary/20 glow">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-primary">
+                  <Shield className="w-6 h-6" />
+                  <span>SIM Swap Detection</span>
+                </CardTitle>
+                <CardDescription>
+                  Real-time monitoring for SIM card cloning and device fingerprint changes
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="glass border-secondary/20 glow-green">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-secondary">
+                  <Eye className="w-6 h-6" />
+                  <span>AI Headcard</span>
+                </CardTitle>
+                <CardDescription>
+                  Pop-up AI assistant during calls with fraud tips and emergency actions
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="glass border-accent/20 glow-blue">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-accent">
+                  <Globe className="w-6 h-6" />
+                  <span>Multi-Language</span>
+                </CardTitle>
+                <CardDescription>
+                  Full English and Swahili support for inclusive African banking
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -280,36 +361,43 @@ export default function HomePage() {
         {/* Technical Stack */}
         <Card className="glass max-w-4xl mx-auto">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-foreground mb-4">Built for Hackathon Excellence</CardTitle>
+            <CardTitle className="text-2xl text-foreground mb-4">🏆 Built for Hackathon Excellence</CardTitle>
             <CardDescription className="text-lg">
-              Cutting-edge technology stack designed for impressive demonstrations
+              Production-grade technology stack with African fintech focus
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <Badge variant="outline" className="glass border-primary/30 text-primary justify-center py-2">
-                PWA Ready
+                🔄 PWA Ready
               </Badge>
               <Badge variant="outline" className="glass border-secondary/30 text-secondary justify-center py-2">
-                WebCrypto
+                🔐 AES Encryption
               </Badge>
               <Badge variant="outline" className="glass border-accent/30 text-accent justify-center py-2">
-                IndexedDB
+                💾 Offline Storage
               </Badge>
               <Badge variant="outline" className="glass border-destructive/30 text-destructive justify-center py-2">
-                ML Simulation
+                🤖 AI Detection
               </Badge>
               <Badge variant="outline" className="glass border-primary/30 text-primary justify-center py-2">
-                Biometric APIs
+                👆 Biometric APIs
               </Badge>
               <Badge variant="outline" className="glass border-secondary/30 text-secondary justify-center py-2">
-                Fraud Engine
+                🛡️ Fraud Engine
               </Badge>
               <Badge variant="outline" className="glass border-accent/30 text-accent justify-center py-2">
-                Real-time Analytics
+                📊 Live Analytics
               </Badge>
               <Badge variant="outline" className="glass border-destructive/30 text-destructive justify-center py-2">
-                GPS Tracking
+                📍 GPS Tracking
+              </Badge>
+            </div>
+            
+            <div className="text-center">
+              <Badge variant="outline" className="glass border-primary/30 text-primary text-lg px-6 py-3">
+                <Users className="w-4 h-4 mr-2" />
+                Ready for 1M+ African Users
               </Badge>
             </div>
           </CardContent>
