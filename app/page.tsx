@@ -6,7 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PWAInstaller } from "@/components/pwa-installer"
-import { Shield, Smartphone, Eye, Mic, AlertTriangle, BarChart3, WifiOff, Zap } from "lucide-react"
+import {
+  Shield,
+  Smartphone,
+  Eye,
+  Mic,
+  AlertTriangle,
+  BarChart3,
+  WifiOff,
+  Zap,
+  MessageCircle,
+  Building,
+} from "lucide-react"
+import { AnimatedSplash } from "@/components/animated-splash"
+import { EnhancedChatbot } from "@/components/enhanced-chatbot"
+import { AIHeadcard } from "@/components/ai-headcard"
 
 export default function HomePage() {
   const router = useRouter()
@@ -23,9 +37,26 @@ export default function HomePage() {
     router.push("/auth")
   }
 
+  const handleUSSDDemo = () => {
+    router.push("/ussd")
+  }
+
+  const handleBusinessDemo = () => {
+    router.push("/business")
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10">
+    <div className="min-h-screen animated-bg">
+      <AnimatedSplash />
       <PWAInstaller />
+      <EnhancedChatbot />
+      <AIHeadcard isVisible={false} onClose={() => {}} alertType="call" userName="Demo User" />
+
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-10">
+        <Shield className="floating-icon absolute top-20 left-10 w-6 h-6 text-primary/20" />
+        <Eye className="floating-icon absolute top-40 right-20 w-5 h-5 text-secondary/20" />
+        <Mic className="floating-icon absolute bottom-32 left-20 w-4 h-4 text-accent/20" />
+      </div>
 
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -45,7 +76,7 @@ export default function HomePage() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                   Face-to-Phone
                 </h1>
-                <p className="text-sm text-accent font-medium">Connecting Humans to AI</p>
+                <p className="text-sm text-accent font-medium">AI-Enhanced Fraud Prevention</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -79,26 +110,36 @@ export default function HomePage() {
           </h2>
 
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8 text-pretty">
-            Experience the future of banking with offline-first biometric authentication, real-time fraud detection, and
-            comprehensive security analytics.
+            Experience the future of banking with offline-first biometric authentication, real-time fraud detection,
+            USSD support, and comprehensive security analytics.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
               onClick={handleGetStarted}
               size="lg"
-              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 glow text-lg px-8 py-6"
+              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 glow text-lg px-8 py-6 ripple-effect"
             >
               Get Started
               <Shield className="w-5 h-5 ml-2" />
             </Button>
             <Button
+              onClick={handleUSSDDemo}
               variant="outline"
               size="lg"
-              className="glass border-white/20 hover:bg-white/5 text-lg px-8 py-6 bg-transparent"
+              className="glass border-accent/20 hover:bg-accent/5 text-lg px-8 py-6 bg-transparent"
             >
-              Watch Demo
-              <Eye className="w-5 h-5 ml-2" />
+              <Smartphone className="w-5 h-5 mr-2" />
+              USSD Demo
+            </Button>
+            <Button
+              onClick={handleBusinessDemo}
+              variant="outline"
+              size="lg"
+              className="glass border-secondary/20 hover:bg-secondary/5 text-lg px-8 py-6 bg-transparent"
+            >
+              <Building className="w-5 h-5 mr-2" />
+              Business Dashboard
             </Button>
           </div>
         </div>
@@ -188,6 +229,49 @@ export default function HomePage() {
                   <span>Attack Scenarios</span>
                 </CardTitle>
                 <CardDescription>Pre-built fraud scenarios with GPS tracking and security alerts</CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </div>
+
+        {/* New Features Highlight */}
+        <div className="text-center mb-12">
+          <h3 className="text-3xl font-bold text-foreground mb-8">Enhanced Features</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Card className="glass border-primary/20 glow">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-primary">
+                  <Smartphone className="w-6 h-6" />
+                  <span>USSD Support</span>
+                </CardTitle>
+                <CardDescription>
+                  Complete *123# menu system for feature phones with transaction verification and account management
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="glass border-secondary/20 glow-green">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-secondary">
+                  <MessageCircle className="w-6 h-6" />
+                  <span>AI Fraud Coach</span>
+                </CardTitle>
+                <CardDescription>
+                  Bilingual chatbot with English & Swahili support providing real-time fraud prevention tips
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="glass border-accent/20 glow-blue">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-center space-x-2 text-accent">
+                  <BarChart3 className="w-6 h-6" />
+                  <span>Business Analytics</span>
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive dashboard with revenue tracking, fraud analytics, and staff management tools
+                </CardDescription>
               </CardHeader>
             </Card>
           </div>
