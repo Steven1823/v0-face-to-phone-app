@@ -1,18 +1,38 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { MessageCircle, X, Shield, Lock, Phone, AlertTriangle, Send, Globe } from "lucide-react"
+import { MessageCircle, Send, Shield, Lock, Phone, X, Bot } from "lucide-react"
 
 interface Message {
   id: string
-  text: string
-  isBot: boolean
-  timestamp: Date
+  type: "user" | "bot"
+  content: string
   language: "en" | "sw"
+  timestamp: Date
+}
+
+const fraudTips = {
+  en: [
+    "Tip: Real banks never ask for OTPs over the phone.",
+    "Tip: If you see a SIM swap alert, lock your account immediately.",
+    "Tip: Use fingerprint authentication for high-value transfers.",
+    "Tip: Never share your PIN or password with anyone.",
+    "Tip: Check your account regularly for unauthorized transactions.",
+    "Tip: Be suspicious of urgent payment requests.",
+    "Tip: Verify recipient details before sending money.",
+  ],
+  sw: [
+    "Kidokezo: Benki halisi haziulizi OTP kwa simu.",
+    "Kidokezo: Ukiona onyo la SIM swap, funga akaunti yako mara moja.",
+    "Kidokezo: Tumia kidole chako kwa uhamisho wa pesa nyingi.",
+    "Kidokezo: Usishiriki PIN au password yako na mtu yeyote.",
+    "Kidokezo: Angalia akaunti yako mara kwa mara.",
+    "Kidokezo: Kuwa na wasiwasi na maombi ya haraka ya malipo.",
+    "Kidokezo: Thibitisha maelezo ya mpokeaji kabla ya kutuma pesa.",
+  ],
 }
 
 export function EnhancedChatbot() {
@@ -21,266 +41,197 @@ export function EnhancedChatbot() {
   const [input, setInput] = useState("")
   const [language, setLanguage] = useState<"en" | "sw">("en")
   const [isTyping, setIsTyping] = useState(false)
-  const [tipCounter, setTipCounter] = useState(0)
-
-  const fraudTips = {
-    en: [
-      "💡 Tip: Real banks never ask for OTPs via phone calls.",
-      "🔒 Tip: Never share your PIN or password with anyone.",
-      "📱 Tip: If you see a SIM swap alert, lock your account immediately.",
-      "👆 Tip: Use fingerprint verification for high-value transfers.",
-      "✅ Tip: Always verify transaction details before confirming.",
-      "🚨 Tip: Report suspicious SMS messages immediately.",
-      "🔄 Tip: Keep your banking app updated for latest security features.",
-      "🕐 Tip: Avoid banking transactions during unusual hours (2-6 AM).",
-      "🌍 Tip: Be cautious of transactions from unknown locations.",
-      "💰 Tip: Set daily transaction limits to prevent large unauthorized transfers."
-    ],
-    sw: [
-      "💡 Kidokezo: Benki halisi haziulizi OTP kupitia simu.",
-      "🔒 Kidokezo: Usimshirikishe mtu yeyote PIN au password yako.",
-      "📱 Kidokezo: Ukiona onyo la SIM swap, funga akaunti yako mara moja.",
-      "👆 Kidokezo: Tumia uthibitisho wa kidole kwa uhamisho wa pesa nyingi.",
-      "✅ Kidokezo: Hakikisha maelezo ya muamala kabla ya kuthibitisha.",
-      "🚨 Kidokezo: Ripoti ujumbe wa SMS wa mashaka mara moja.",
-      "🔄 Kidokezo: Weka programu ya benki yako sasa kwa usalama zaidi.",
-      "🕐 Kidokezo: Epuka miamala ya benki wakati wa kawaida (2-6 asubuhi).",
-      "🌍 Kidokezo: Kuwa mwangalifu na miamala kutoka maeneo yasiyojulikana.",
-      "💰 Kidokezo: Weka kikomo cha miamala ya kila siku kuzuia uhamisho mkubwa usioruhusiwa."
-    ],
-  }
-
-  const responses = {
-    en: {
-      greeting: "🛡️ Hello! I'm your AI Fraud Coach. How can I help keep you safe today?",
-      help: "I can help you with:\n• Fraud prevention tips\n• Account security\n• Reporting suspicious activity\n• Transaction verification\n• Emergency account locking",
-      lock: "🚨 I'll help you lock your account immediately for security. Please confirm this action by typing 'CONFIRM LOCK'.",
-      report: "📝 Please describe the suspicious activity you'd like to report. I'll log it securely and alert our security team.",
-      support: "📞 Connecting you to our support team. They'll be with you shortly. Average wait time: 2 minutes.",
-      fraud_detected: "⚠️ FRAUD ALERT: Suspicious activity detected on your account. I recommend locking your account immediately.",
-      transaction_blocked: "🛑 Transaction blocked for your safety. High fraud risk detected. Your money is secure.",
-      sim_swap: "🚨 SIM SWAP ALERT: Your SIM card may have been cloned. Lock your account NOW and contact support immediately!"
-    },
-    sw: {
-      greeting: "🛡️ Hujambo! Mimi ni Mkocha wako wa AI wa Kuzuia Ulaghai. Ninawezaje kukusaidia kuwa salama leo?",
-      help: "Ninaweza kukusaidia na:\n• Vidokezo vya kuzuia ulaghai\n• Usalama wa akaunti\n• Kuripoti shughuli za mashaka\n• Uthibitisho wa miamala\n• Kufunga akaunti kwa haraka",
-      lock: "🚨 Nitakusaidia kufunga akaunti yako mara moja kwa usalama. Tafadhali thibitisha hatua hii kwa kuandika 'THIBITISHA KUFUNGA'.",
-      report: "📝 Tafadhali eleza shughuli za mashaka unazotaka kuripoti. Nitazirekodi kwa usalama na kuonya timu yetu ya usalama.",
-      support: "📞 Ninakuunganisha na timu yetu ya msaada. Watakuwa nawe hivi karibuni. Muda wa kusubiri wastani: dakika 2.",
-      fraud_detected: "⚠️ ONYO LA ULAGHAI: Shughuli za mashaka zimegunduliwa kwenye akaunti yako. Napendekeza ufunge akaunti yako mara moja.",
-      transaction_blocked: "🛑 Muamala umezuiliwa kwa usalama wako. Hatari kubwa ya ulaghai imegunduliwa. Pesa zako ni salama.",
-      sim_swap: "🚨 ONYO LA SIM SWAP: SIM yako inaweza kuwa imenakiliwa. Funga akaunti yako SASA na wasiliana na msaada mara moja!"
-    },
-  }
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      addBotMessage(responses[language].greeting)
+      // Welcome message
+      const welcomeMessage: Message = {
+        id: Date.now().toString(),
+        type: "bot",
+        content:
+          language === "en"
+            ? "Hello! I'm your AI Fraud Coach. I'm here to help keep your transactions safe. Ask me anything about fraud prevention!"
+            : "Hujambo! Mimi ni Mkocha wako wa AI wa Ulaghai. Niko hapa kukusaidia kuweka miamala yako salama. Niulize chochote kuhusu kuzuia ulaghai!",
+        language,
+        timestamp: new Date(),
+      }
+      setMessages([welcomeMessage])
     }
   }, [isOpen, language])
 
   useEffect(() => {
-    // Send proactive fraud tips every 45 seconds when chat is open
-    const interval = setInterval(() => {
-      if (isOpen && messages.length > 0) {
-        const tips = fraudTips[language]
-        const tip = tips[tipCounter % tips.length]
-        addBotMessage(tip)
-        setTipCounter(prev => prev + 1)
-      }
-    }, 45000)
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
-    return () => clearInterval(interval)
-  }, [isOpen, language, tipCounter, messages.length])
-
-  const addBotMessage = (text: string) => {
-    setIsTyping(true)
-    setTimeout(() => {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        text,
-        isBot: true,
-        timestamp: new Date(),
-        language,
-      }
-      setMessages((prev) => [...prev, newMessage])
-      setIsTyping(false)
-    }, 1000 + Math.random() * 1000) // Variable typing delay for realism
-  }
-
-  const addUserMessage = (text: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text,
-      isBot: false,
-      timestamp: new Date(),
-      language,
-    }
-    setMessages((prev) => [...prev, newMessage])
-  }
-
-  const handleSend = () => {
+  const sendMessage = async () => {
     if (!input.trim()) return
 
-    addUserMessage(input)
-    const userInput = input.toLowerCase()
-
-    // Enhanced response logic with more scenarios
-    if (userInput.includes("help") || userInput.includes("msaada")) {
-      addBotMessage(responses[language].help)
-    } else if (userInput.includes("lock") || userInput.includes("funga")) {
-      addBotMessage(responses[language].lock)
-    } else if (userInput.includes("confirm lock") || userInput.includes("thibitisha kufunga")) {
-      addBotMessage(language === "en" ? 
-        "🔒 ACCOUNT LOCKED SUCCESSFULLY! Your account is now secure. To unlock, visit a branch with ID or call support." :
-        "🔒 AKAUNTI IMEFUNGWA KWA MAFANIKIO! Akaunti yako sasa ni salama. Kufungua, tembelea tawi na kitambulisho au piga msaada.")
-    } else if (userInput.includes("report") || userInput.includes("ripoti")) {
-      addBotMessage(responses[language].report)
-    } else if (userInput.includes("support") || userInput.includes("msaada")) {
-      addBotMessage(responses[language].support)
-    } else if (userInput.includes("fraud") || userInput.includes("ulaghai")) {
-      addBotMessage(responses[language].fraud_detected)
-    } else if (userInput.includes("sim") || userInput.includes("swap")) {
-      addBotMessage(responses[language].sim_swap)
-    } else if (userInput.includes("transaction") || userInput.includes("muamala")) {
-      addBotMessage(responses[language].transaction_blocked)
-    } else {
-      // Provide contextual tips based on keywords
-      const tips = fraudTips[language]
-      let selectedTip = tips[Math.floor(Math.random() * tips.length)]
-      
-      if (userInput.includes("otp") || userInput.includes("pin")) {
-        selectedTip = tips[0] // OTP tip
-      } else if (userInput.includes("sms") || userInput.includes("message")) {
-        selectedTip = tips[5] // SMS tip
-      } else if (userInput.includes("transfer") || userInput.includes("send")) {
-        selectedTip = tips[3] // Fingerprint tip
-      }
-      
-      addBotMessage(selectedTip)
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: "user",
+      content: input,
+      language,
+      timestamp: new Date(),
     }
 
+    setMessages((prev) => [...prev, userMessage])
     setInput("")
+    setIsTyping(true)
+
+    // Simulate bot response
+    setTimeout(() => {
+      const botResponse = generateBotResponse(input, language)
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: "bot",
+        content: botResponse,
+        language,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, botMessage])
+      setIsTyping(false)
+    }, 1500)
   }
+
+  const generateBotResponse = (userInput: string, lang: "en" | "sw"): string => {
+    const input = userInput.toLowerCase()
+
+    if (input.includes("otp") || input.includes("password")) {
+      return lang === "en"
+        ? "🛡️ Never share your OTP or password! Banks will never ask for these over phone or SMS. If someone asks, it's likely a scam."
+        : "🛡️ Usishiriki OTP au password yako! Benki hazitauliza hivi kwa simu au SMS. Kama mtu anauliza, pengine ni ulaghai."
+    }
+
+    if (input.includes("suspicious") || input.includes("fraud")) {
+      return lang === "en"
+        ? "🚨 If you notice suspicious activity: 1) Lock your account immediately 2) Contact your bank 3) Report to authorities. Quick action prevents losses!"
+        : "🚨 Ukiona shughuli za kutilia shaka: 1) Funga akaunti yako mara moja 2) Wasiliana na benki yako 3) Ripoti kwa mamlaka. Hatua za haraka zinazuia hasara!"
+    }
+
+    if (input.includes("transfer") || input.includes("send money")) {
+      return lang === "en"
+        ? "💰 Before sending money: 1) Verify recipient details 2) Use biometric authentication 3) Check transaction limits 4) Confirm with recipient via different channel."
+        : "💰 Kabla ya kutuma pesa: 1) Thibitisha maelezo ya mpokeaji 2) Tumia uthibitishaji wa kibayolojia 3) Angalia mipaka ya miamala 4) Thibitisha na mpokeaji kwa njia nyingine."
+    }
+
+    // Random fraud tip
+    const tips = fraudTips[lang]
+    const randomTip = tips[Math.floor(Math.random() * tips.length)]
+
+    return lang === "en"
+      ? `I understand your concern. Here's a helpful tip: ${randomTip} Is there anything specific about fraud prevention you'd like to know?`
+      : `Naelewa wasiwasi wako. Hapa kuna kidokezo cha kusaidia: ${randomTip} Je, kuna kitu maalum kuhusu kuzuia ulaghai ungependa kujua?`
+  }
+
+  const quickActions = [
+    {
+      label: language === "en" ? "Lock Account" : "Funga Akaunti",
+      icon: Lock,
+      action: () => alert(language === "en" ? "Account locked for security" : "Akaunti imefungwa kwa usalama"),
+    },
+    {
+      label: language === "en" ? "Report Transaction" : "Ripoti Muamala",
+      icon: Shield,
+      action: () => alert(language === "en" ? "Transaction reported" : "Muamala umeripotiwa"),
+    },
+    {
+      label: language === "en" ? "Call Support" : "Piga Msaada",
+      icon: Phone,
+      action: () => alert(language === "en" ? "Calling support..." : "Kupigia msaada..."),
+    },
+  ]
 
   return (
     <>
-      {/* Floating Button with notification badge */}
-      {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-40">
-          <Button
-            onClick={() => setIsOpen(true)}
-            className="w-14 h-14 rounded-full bg-gradient-to-r from-primary to-secondary glow pulse-glow shadow-lg"
-          >
-            <MessageCircle className="w-6 h-6 text-white" />
-          </Button>
-          {/* Notification badge */}
-          <div className="absolute -top-2 -right-2 w-6 h-6 bg-destructive rounded-full flex items-center justify-center animate-pulse">
-            <span className="text-xs text-white font-bold">!</span>
-          </div>
-        </div>
-      )}
+      {/* Floating Button */}
+      <Button
+        onClick={() => setIsOpen(true)}
+        className={`fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-primary to-secondary shadow-lg z-40 ${isOpen ? "hidden" : "animate-pulse"}`}
+      >
+        <MessageCircle className="w-6 h-6 text-white" />
+      </Button>
 
       {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 w-80 h-96 z-50">
-          <Card className="glass glow h-full flex flex-col border-primary/20">
-            <CardHeader className="pb-3">
+          <Card className="glass h-full flex flex-col border-primary/20 shadow-2xl">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center glow pulse-glow">
-                    <Shield className="w-4 h-4 text-white" />
+                  <div className="w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center animate-pulse">
+                    <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-sm">AI Fraud Coach</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline" className="text-xs glass border-secondary/30 text-secondary">
-                        Online
-                      </Badge>
-                      <Badge variant="outline" className="text-xs glass border-accent/30 text-accent">
-                        24/7
-                      </Badge>
+                    <CardTitle className="text-sm text-primary">AI Fraud Coach</CardTitle>
+                    <div className="flex space-x-1">
+                      <Button
+                        variant={language === "en" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setLanguage("en")}
+                        className="text-xs h-5 px-2"
+                      >
+                        EN
+                      </Button>
+                      <Button
+                        variant={language === "sw" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setLanguage("sw")}
+                        className="text-xs h-5 px-2"
+                      >
+                        SW
+                      </Button>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setLanguage(language === "en" ? "sw" : "en")}
-                    className="text-xs glass"
-                  >
-                    <Globe className="w-3 h-3 mr-1" />
-                    {language === "en" ? "SW" : "EN"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)} className="h-6 w-6 p-0">
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
             </CardHeader>
 
-            <CardContent className="flex-1 flex flex-col p-3">
+            <CardContent className="flex-1 flex flex-col p-3 space-y-3">
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto space-y-3 mb-3 scroll-smooth">
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                 {messages.map((message) => (
-                  <div key={message.id} className={`flex ${message.isBot ? "justify-start" : "justify-end"} slide-in`}>
+                  <div key={message.id} className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[80%] p-3 rounded-lg text-sm ${
-                        message.isBot
-                          ? "bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 text-primary-foreground"
-                          : "bg-gradient-to-r from-secondary/10 to-accent/10 border border-secondary/20 text-secondary-foreground"
+                      className={`max-w-[80%] p-2 rounded-lg text-xs ${
+                        message.type === "user" ? "bg-primary text-white" : "glass border border-white/10"
                       }`}
                     >
-                      {message.text}
-                      <div className="text-xs opacity-60 mt-1">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
+                      {message.content}
                     </div>
                   </div>
                 ))}
                 {isTyping && (
-                  <div className="flex justify-start slide-in">
-                    <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 p-3 rounded-lg text-sm">
+                  <div className="flex justify-start">
+                    <div className="glass border border-white/10 p-2 rounded-lg">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100"></div>
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200"></div>
+                        <div className="w-1 h-1 bg-primary rounded-full animate-bounce"></div>
+                        <div className="w-1 h-1 bg-primary rounded-full animate-bounce delay-100"></div>
+                        <div className="w-1 h-1 bg-primary rounded-full animate-bounce delay-200"></div>
                       </div>
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Quick Actions */}
-              <div className="flex flex-wrap gap-1 mb-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs glass border-destructive/30 text-destructive hover:bg-destructive/10 bg-transparent ripple-effect"
-                  onClick={() => addUserMessage(language === "en" ? "Lock Account" : "Funga Akaunti")}
-                >
-                  <Lock className="w-3 h-3 mr-1" />
-                  {language === "en" ? "🚨 Lock" : "🚨 Funga"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs glass border-accent/30 text-accent hover:bg-accent/10 bg-transparent ripple-effect"
-                  onClick={() => addUserMessage(language === "en" ? "Report Fraud" : "Ripoti Ulaghai")}
-                >
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  {language === "en" ? "📢 Report" : "📢 Ripoti"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs glass border-primary/30 text-primary hover:bg-primary/10 bg-transparent ripple-effect"
-                  onClick={() => addUserMessage(language === "en" ? "Call Support" : "Piga Msaada")}
-                >
-                  <Phone className="w-3 h-3 mr-1" />
-                  {language === "en" ? "📞 Support" : "📞 Msaada"}
-                </Button>
+              <div className="flex flex-wrap gap-1">
+                {quickActions.map((action, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={action.action}
+                    className="text-xs glass border-primary/30 h-6 bg-transparent"
+                  >
+                    <action.icon className="w-3 h-3 mr-1" />
+                    {action.label}
+                  </Button>
+                ))}
               </div>
 
               {/* Input */}
@@ -288,12 +239,17 @@ export function EnhancedChatbot() {
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
                   placeholder={language === "en" ? "Ask about fraud prevention..." : "Uliza kuhusu kuzuia ulaghai..."}
-                  className="glass text-sm"
-                  onKeyPress={(e) => e.key === "Enter" && handleSend()}
+                  className="text-xs glass border-white/20"
                 />
-                <Button size="sm" onClick={handleSend} className="bg-gradient-to-r from-primary to-secondary ripple-effect">
-                  <Send className="w-4 h-4" />
+                <Button
+                  onClick={sendMessage}
+                  size="sm"
+                  className="bg-gradient-to-r from-primary to-secondary"
+                  disabled={!input.trim()}
+                >
+                  <Send className="w-3 h-3" />
                 </Button>
               </div>
             </CardContent>

@@ -1,388 +1,393 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  ArrowLeft,
-  DollarSign,
-  TrendingUp,
-  AlertTriangle,
-  Users,
-  Shield,
-  BarChart3,
-  CheckCircle,
-  XCircle,
-  Eye,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts"
+import { Switch } from "@/components/ui/switch"
+import { Menu, TrendingUp, AlertTriangle, Shield, Clock, CheckCircle, XCircle, Eye, BarChart3 } from "lucide-react"
+import { SideMenu } from "@/components/side-menu"
+import { OfflineBanner } from "@/components/offline-banner"
 
 export default function BusinessDashboard() {
-  const router = useRouter()
-  const [userRole, setUserRole] = useState<"owner" | "staff">("owner")
-  const [revenueData] = useState([
-    { month: "Jan", revenue: 45000, transactions: 120 },
-    { month: "Feb", revenue: 52000, transactions: 145 },
-    { month: "Mar", revenue: 48000, transactions: 132 },
-    { month: "Apr", revenue: 61000, transactions: 167 },
-    { month: "May", revenue: 55000, transactions: 154 },
-    { month: "Jun", revenue: 67000, transactions: 189 },
-  ])
+  const [userRole] = useState<"owner" | "staff">("owner") // Simulate role
+  const [isOffline, setIsOffline] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showMockData, setShowMockData] = useState(false)
 
-  const [riskData] = useState([
-    { name: "Low Risk", value: 75, color: "#228b22" },
-    { name: "Medium Risk", value: 20, color: "#d4af37" },
-    { name: "High Risk", value: 5, color: "#dc2626" },
-  ])
+  useEffect(() => {
+    const offlineMode = localStorage.getItem("offlineMode") === "true"
+    setIsOffline(offlineMode)
+  }, [])
 
-  const [flaggedTransactions] = useState([
-    {
-      id: "TXN-001",
-      amount: 25000,
-      customer: "John Doe",
-      riskScore: 8.5,
-      status: "pending",
-      reason: "High amount + unusual time",
-    },
-    {
-      id: "TXN-002",
-      amount: 15000,
-      customer: "Jane Smith",
-      riskScore: 7.2,
-      status: "approved",
-      reason: "Biometric mismatch resolved",
-    },
-    {
-      id: "TXN-003",
-      amount: 50000,
-      customer: "Mike Johnson",
-      riskScore: 9.1,
-      status: "blocked",
-      reason: "Multiple fraud indicators",
-    },
-  ])
+  const toggleOfflineMode = () => {
+    const newOfflineMode = !isOffline
+    setIsOffline(newOfflineMode)
+    localStorage.setItem("offlineMode", newOfflineMode.toString())
+  }
+
+  const revenueData = {
+    today: 45620,
+    week: 312450,
+    month: 1245600,
+    growth: 12.5,
+  }
+
+  const flaggedTransactions = [
+    { id: "TXN001", amount: 50000, customer: "John Doe", risk: "High", reason: "Amount anomaly" },
+    { id: "TXN002", amount: 25000, customer: "Jane Smith", risk: "Medium", reason: "New device" },
+    { id: "TXN003", amount: 75000, customer: "Bob Wilson", risk: "High", reason: "Velocity check failed" },
+  ]
+
+  const pendingApprovals = [
+    { id: "APP001", type: "Large Transfer", amount: 100000, customer: "Alice Brown", time: "5 min ago" },
+    { id: "APP002", type: "Account Unlock", customer: "Mike Johnson", time: "12 min ago" },
+    { id: "APP003", type: "Limit Increase", amount: 200000, customer: "Sarah Davis", time: "1 hour ago" },
+  ]
 
   return (
-    <div className="min-h-screen animated-bg p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => router.back()} className="p-2">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Business Dashboard</h1>
-              <p className="text-muted-foreground">Real-time fraud monitoring & analytics</p>
+    <div className={`min-h-screen ${isOffline ? "offline-animated-bg" : "animated-bg"}`}>
+      <OfflineBanner isOffline={isOffline} />
+      <SideMenu
+        isOffline={isOffline}
+        onToggleOffline={toggleOfflineMode}
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+      />
+
+      <header
+        className={`border-b backdrop-blur-sm ${isOffline ? "bg-black/20 border-purple-500/30" : "bg-white/10 border-white/20"}`}
+      >
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMenuOpen(true)}
+                className={`${isOffline ? "text-white hover:bg-purple-500/20" : "text-white hover:bg-white/20"} glass`}
+              >
+                <Menu className="w-4 h-4" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-bold text-white">Business Dashboard</h1>
+                <p className="text-sm text-white/80">
+                  {userRole === "owner" ? "Owner View" : "Staff View"} • Real-time Analytics
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-white/80">Offline Mode</span>
+                <Switch
+                  checked={isOffline}
+                  onCheckedChange={toggleOfflineMode}
+                  className="data-[state=checked]:bg-purple-500"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMockData(!showMockData)}
+                className="glass bg-transparent text-white border-white/30 hover:bg-white/20"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                {showMockData ? "Hide" : "Show"} Mock Data
+              </Button>
+              <Badge variant="outline" className="text-yellow-300 border-yellow-400 bg-yellow-500/20">
+                <Shield className="w-3 h-3 mr-1" />
+                {userRole === "owner" ? "Full Access" : "Limited Access"}
+              </Badge>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <Badge
-              variant="outline"
-              className={`glass ${userRole === "owner" ? "border-primary/30 text-primary" : "border-secondary/30 text-secondary"}`}
-            >
-              {userRole === "owner" ? "Owner" : "Staff"}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setUserRole(userRole === "owner" ? "staff" : "owner")}
-              className="glass"
-            >
-              Switch Role
-            </Button>
-          </div>
         </div>
+      </header>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="glass glow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">KSh 328,000</div>
-              <p className="text-xs text-muted-foreground">
-                <TrendingUp className="inline w-3 h-3 mr-1" />
-                +12.5% from last month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass glow-green">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Safe Transactions</CardTitle>
-              <Shield className="h-4 w-4 text-secondary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-secondary">1,247</div>
-              <p className="text-xs text-muted-foreground">95.2% success rate</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass glow-red">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Flagged Transactions</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">63</div>
-              <p className="text-xs text-muted-foreground">4.8% of total transactions</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass glow-blue">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-              <Users className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-accent">2,847</div>
-              <p className="text-xs text-muted-foreground">+8.2% new users this month</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="glass">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="transactions">Flagged Transactions</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            {userRole === "owner" && <TabsTrigger value="staff">Staff Management</TabsTrigger>}
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Revenue Chart */}
-              <Card className="glass">
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex gap-6">
+          {showMockData && (
+            <div className="w-80 space-y-4">
+              <Card
+                className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm`}
+              >
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <BarChart3 className="w-5 h-5 text-primary" />
-                    <span>Revenue Trend</span>
-                  </CardTitle>
+                  <CardTitle className="text-white">Mock Data Preview</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={revenueData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(212, 175, 55, 0.1)" />
-                      <XAxis dataKey="month" stroke="rgba(212, 175, 55, 0.5)" />
-                      <YAxis stroke="rgba(212, 175, 55, 0.5)" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "rgba(255, 255, 255, 0.9)",
-                          border: "1px solid rgba(212, 175, 55, 0.3)",
-                          borderRadius: "8px",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#d4af37"
-                        strokeWidth={3}
-                        dot={{ fill: "#d4af37", strokeWidth: 2, r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Risk Distribution */}
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Shield className="w-5 h-5 text-secondary" />
-                    <span>Risk Distribution</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={riskData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {riskData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex justify-center space-x-4 mt-4">
-                    {riskData.map((entry, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                        <span className="text-sm text-muted-foreground">{entry.name}</span>
-                      </div>
-                    ))}
+                <CardContent className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-400">KES 2.4M</div>
+                    <div className="text-sm text-white/70">Monthly Revenue</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-400">1,247</div>
+                    <div className="text-sm text-white/70">Transactions Monitored</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-400">23</div>
+                    <div className="text-sm text-white/70">Threats Blocked</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-yellow-400">98.7%</div>
+                    <div className="text-sm text-white/70">Security Score</div>
                   </div>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="transactions" className="space-y-6">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <AlertTriangle className="w-5 h-5 text-destructive" />
-                  <span>Flagged Transactions</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {flaggedTransactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex items-center justify-between p-4 border border-border rounded-lg glass"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            transaction.status === "approved"
-                              ? "bg-secondary"
-                              : transaction.status === "blocked"
-                                ? "bg-destructive"
-                                : "bg-primary"
-                          }`}
-                        ></div>
-                        <div>
-                          <p className="font-medium">{transaction.id}</p>
-                          <p className="text-sm text-muted-foreground">{transaction.customer}</p>
-                        </div>
+          <div className="flex-1">
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList
+                className={`${isOffline ? "bg-purple-900/50 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm`}
+              >
+                <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="transactions" className="text-white data-[state=active]:bg-white/20">
+                  Transactions
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20">
+                  Analytics
+                </TabsTrigger>
+                {userRole === "owner" && (
+                  <TabsTrigger value="staff" className="text-white data-[state=active]:bg-white/20">
+                    Staff
+                  </TabsTrigger>
+                )}
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm chart-animate`}
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-white/80">Today's Revenue</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-400">KSH {revenueData.today.toLocaleString()}</div>
+                      <div className="flex items-center text-sm text-green-300 mt-1">
+                        <TrendingUp className="w-3 h-3 mr-1" />+{revenueData.growth}%
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">KSh {transaction.amount.toLocaleString()}</p>
-                        <p className="text-sm text-muted-foreground">Risk: {transaction.riskScore}/10</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {transaction.status === "pending" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="glass border-secondary/30 text-secondary bg-transparent"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="glass border-destructive/30 text-destructive bg-transparent"
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Block
-                            </Button>
-                          </>
-                        )}
-                        <Button size="sm" variant="outline" className="glass bg-transparent">
-                          <Eye className="w-4 h-4 mr-1" />
-                          Details
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm chart-animate`}
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-white/80">This Week</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-blue-400">KSH {revenueData.week.toLocaleString()}</div>
+                      <div className="text-sm text-white/70 mt-1">7 days</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm chart-animate`}
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-white/80">This Month</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-yellow-400">KSH {revenueData.month.toLocaleString()}</div>
+                      <div className="text-sm text-white/70 mt-1">30 days</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm chart-animate`}
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-white/80">Flagged Today</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-400">{flaggedTransactions.length}</div>
+                      <div className="text-sm text-white/70 mt-1">Requires attention</div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="text-lg">Fraud Prevention</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-secondary mb-2">KSh 2.4M</div>
-                  <p className="text-sm text-muted-foreground">Prevented losses this month</p>
-                </CardContent>
-              </Card>
-
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="text-lg">Detection Rate</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-primary mb-2">97.8%</div>
-                  <p className="text-sm text-muted-foreground">AI accuracy rate</p>
-                </CardContent>
-              </Card>
-
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="text-lg">Response Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent mb-2">1.2s</div>
-                  <p className="text-sm text-muted-foreground">Average detection time</p>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {userRole === "owner" && (
-            <TabsContent value="staff" className="space-y-6">
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="w-5 h-5 text-accent" />
-                    <span>Staff Management</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { name: "Alice Johnson", role: "Senior Analyst", status: "online", transactions: 45 },
-                      { name: "Bob Smith", role: "Fraud Specialist", status: "offline", transactions: 32 },
-                      { name: "Carol Davis", role: "Risk Manager", status: "online", transactions: 28 },
-                    ].map((staff, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-4 border border-border rounded-lg glass"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div
-                            className={`w-3 h-3 rounded-full ${staff.status === "online" ? "bg-secondary" : "bg-muted"}`}
-                          ></div>
-                          <div>
-                            <p className="font-medium">{staff.name}</p>
-                            <p className="text-sm text-muted-foreground">{staff.role}</p>
+                <Card
+                  className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm`}
+                >
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2 text-white">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <span>Flagged Transactions</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {flaggedTransactions.map((transaction) => (
+                        <div
+                          key={transaction.id}
+                          className="flex items-center justify-between p-3 border border-white/20 rounded-lg backdrop-blur-sm"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
+                              <AlertTriangle className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-white">{transaction.customer}</div>
+                              <div className="text-sm text-white/70">
+                                {transaction.id} • KSH {transaction.amount.toLocaleString()}
+                              </div>
+                              <div className="text-xs text-red-400">{transaction.reason}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="destructive" className="text-xs bg-red-500/20 text-red-300">
+                              {transaction.risk} Risk
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="glass bg-transparent text-white border-white/30 hover:bg-white/20"
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              Review
+                            </Button>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{staff.transactions} transactions</p>
-                          <p className="text-sm text-muted-foreground">Today</p>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {userRole === "owner" && (
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm`}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2 text-white">
+                        <Clock className="w-5 h-5 text-blue-400" />
+                        <span>Pending Approvals</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {pendingApprovals.map((approval) => (
+                          <div
+                            key={approval.id}
+                            className="flex items-center justify-between p-3 border border-white/20 rounded-lg backdrop-blur-sm"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+                                <Clock className="w-5 h-5 text-blue-400" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-white">{approval.type}</div>
+                                <div className="text-sm text-white/70">
+                                  {approval.customer} • {approval.time}
+                                </div>
+                                {approval.amount && (
+                                  <div className="text-xs text-blue-400">KSH {approval.amount.toLocaleString()}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="glass border-green-500/30 text-green-400 bg-transparent hover:bg-green-500/20"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="glass border-red-500/30 text-red-400 bg-transparent hover:bg-red-500/20"
+                              >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Decline
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="analytics" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm chart-animate`}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2 text-white">
+                        <BarChart3 className="w-5 h-5 text-green-400" />
+                        <span>Risk Distribution</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-white">Low Risk</span>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-24 h-2 bg-green-500/20 rounded-full">
+                              <div className="w-20 h-2 bg-green-500 rounded-full chart-bar-animate"></div>
+                            </div>
+                            <span className="text-sm font-medium text-white">85%</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-white">Medium Risk</span>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-24 h-2 bg-yellow-500/20 rounded-full">
+                              <div className="w-3 h-2 bg-yellow-500 rounded-full chart-bar-animate"></div>
+                            </div>
+                            <span className="text-sm font-medium text-white">12%</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-white">High Risk</span>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-24 h-2 bg-red-500/20 rounded-full">
+                              <div className="w-1 h-2 bg-red-500 rounded-full chart-bar-animate"></div>
+                            </div>
+                            <span className="text-sm font-medium text-white">3%</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-        </Tabs>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className={`${isOffline ? "bg-purple-900/30 border-purple-500/30" : "bg-white/10 border-white/20"} backdrop-blur-sm chart-animate`}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2 text-white">
+                        <TrendingUp className="w-5 h-5 text-blue-400" />
+                        <span>Transaction Sparkline</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-32 flex items-end space-x-1">
+                        {Array.from({ length: 20 }, (_, i) => (
+                          <div
+                            key={i}
+                            className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-t flex-1 chart-bar-animate"
+                            style={{
+                              height: `${Math.random() * 100}%`,
+                              animationDelay: `${i * 0.1}s`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div className="text-sm text-white/70 mt-2">Last 20 transactions</div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </div>
   )

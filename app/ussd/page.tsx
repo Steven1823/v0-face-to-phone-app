@@ -1,321 +1,630 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Smartphone, ArrowLeft, Shield, AlertTriangle, Lock, Phone, CheckCircle, XCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Phone,
+  Shield,
+  CheckCircle,
+  AlertTriangle,
+  ArrowRight,
+  Hash,
+  Brain,
+  MessageSquare,
+  Users,
+  TrendingUp,
+  WifiOff,
+  Eye,
+  UserX,
+  Activity,
+  Lock,
+  Unlock,
+} from "lucide-react"
+import { SideMenu } from "@/components/side-menu"
+import { OfflineBanner } from "@/components/offline-banner"
 
-type MenuState = "main" | "register" | "verify" | "support" | "transactions"
+interface FraudAlert {
+  id: string
+  type: "sim_swap" | "unusual_pattern" | "coercion" | "known_fraudster" | "suspicious_message"
+  severity: "low" | "medium" | "high" | "critical"
+  message: string
+  timestamp: Date
+  resolved: boolean
+}
+
+interface TransactionPattern {
+  amount: number
+  frequency: number
+  timeOfDay: string
+  location: string
+  risk_score: number
+}
+
+interface FraudsterData {
+  number: string
+  name: string
+  risk_level: "high" | "medium" | "low"
+  reported_count: number
+  last_activity: Date
+}
 
 export default function USSDPage() {
-  const router = useRouter()
-  const [currentMenu, setCurrentMenu] = useState<MenuState>("main")
-  const [input, setInput] = useState("")
-  const [response, setResponse] = useState("")
-  const [transactionId, setTransactionId] = useState("")
-  const [userName, setUserName] = useState("")
+  const [isOffline, setIsOffline] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [ussdCode, setUssdCode] = useState("")
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>([])
+  const [isCoercionMode, setIsCoercionMode] = useState(false)
+  const [transactionAmount, setTransactionAmount] = useState("")
+  const [showFraudDatabase, setShowFraudDatabase] = useState(false)
+  const [mlAnalysisActive, setMlAnalysisActive] = useState(true)
+  const [simSwapDetected, setSimSwapDetected] = useState(false)
 
-  const handleMenuSelect = (option: string) => {
-    switch (option) {
-      case "1":
-        setResponse("Balance: KSh 45,230.50\nAvailable: KSh 43,100.25\nLast updated: Today 14:32\n\nPress 0 for main menu")
-        break
-      case "2":
-        setCurrentMenu("transactions")
-        setResponse("Loading transaction history...")
-        setTimeout(() => {
-          setResponse(
-            "Recent Transactions:\n\n1. KSh 2,500 - Mpesa Transfer\n   Status: ✅ APPROVED\n   Risk: Low (2/10)\n   Time: Today 13:45\n\n2. KSh 850 - Airtime Purchase\n   Status: ✅ APPROVED\n   Risk: Low (1/10)\n   Time: Today 12:30\n\n3. KSh 15,000 - Bank Transfer\n   Status: ❌ DECLINED\n   Risk: High (8/10)\n   Reason: Fraud Alert - Face mismatch\n   Time: Today 11:15\n\n4. KSh 5,200 - Online Payment\n   Status: ⏳ PENDING\n   Risk: Medium (5/10)\n   Reason: Unusual merchant\n   Time: Today 10:00\n\nPress 0 for main menu"
-          )
-        }, 1500)
-        break
-      case "3":
-        setCurrentMenu("verify")
-        setResponse("Enter Transaction ID to verify:\n(Format: TXN123456)")
-        break
-      case "4":
-        setResponse(
-          "🚨 SUSPICIOUS ACTIVITY REPORTED\n\nReference: SA-2024-001\nTimestamp: " + new Date().toLocaleString() + "\n\nOur security team will investigate within 24 hours.\n\nThank you for keeping your account safe!\n\nEmergency Support: *911#\n\nPress 0 for main menu"
-        )
-        break
-      case "5":
-        setResponse(
-          "⚠️ ACCOUNT LOCKED SUCCESSFULLY\n\nYour account is now secured against unauthorized access.\n\nTo unlock:\n• Visit nearest branch with ID\n• Call support: 0800-FRAUD-HELP\n• Use mobile app with biometrics\n\nEmergency Support: *911#\n\nYour safety is our priority! 🛡️"
-        )
-        break
-      case "6":
-        setCurrentMenu("register")
-        setResponse("Welcome to Face-to-Phone USSD!\n\nEnter your full name to register:")
-        break
-      case "7":
-        setCurrentMenu("support")
-        setResponse("Loading support options...")
-        setTimeout(() => {
-          setResponse("Support Options:\n\n1. Chat with Agent (Available)\n2. Request Callback (24/7)\n3. Emergency Line (Immediate)\n4. Branch Locator (Nearby)\n5. Fraud Helpline (Dedicated)\n\nSelect option or press 0 for main menu")
-        }, 1000)
-        break
-      default:
-        setResponse("Invalid option. Please try again.\n\nPress 0 for main menu")
+  const mockFraudsters: FraudsterData[] = [
+    {
+      number: "+1234567890",
+      name: "Known Scammer A",
+      risk_level: "high",
+      reported_count: 45,
+      last_activity: new Date(),
+    },
+    { number: "+0987654321", name: "Fake Bank Rep", risk_level: "high", reported_count: 32, last_activity: new Date() },
+    {
+      number: "+1122334455",
+      name: "Lottery Scam",
+      risk_level: "medium",
+      reported_count: 18,
+      last_activity: new Date(),
+    },
+  ]
+
+  const userTransactionPatterns: TransactionPattern[] = [
+    { amount: 50, frequency: 3, timeOfDay: "morning", location: "home", risk_score: 0.1 },
+    { amount: 100, frequency: 2, timeOfDay: "afternoon", location: "work", risk_score: 0.2 },
+    { amount: 25, frequency: 5, timeOfDay: "evening", location: "home", risk_score: 0.1 },
+  ]
+
+  const ussdFlow = [
+    { code: "*123#", description: "Check Account Balance", response: "Your balance is $1,250.00", risk: "low" },
+    { code: "*456*1#", description: "Transfer Money", response: "Enter recipient number:", risk: "high" },
+    { code: "*789#", description: "Buy Airtime", response: "Select amount: 1) $5 2) $10 3) $20", risk: "low" },
+    {
+      code: "*999*1#",
+      description: "Pay Bills",
+      response: "Select service: 1) Electricity 2) Water 3) Internet",
+      risk: "medium",
+    },
+  ]
+
+  const securityFeatures = [
+    {
+      title: "SIM Swap Detection",
+      description: "Detects unauthorized SIM card changes and alerts immediately",
+      icon: Phone,
+      status: simSwapDetected ? "alert" : "active",
+    },
+    {
+      title: "Coercion Protection",
+      description: "Special security mode when user is under duress",
+      icon: Lock,
+      status: isCoercionMode ? "active" : "standby",
+    },
+    {
+      title: "Pattern Analysis",
+      description: "AI analyzes spending patterns to detect anomalies",
+      icon: Brain,
+      status: "active",
+    },
+    {
+      title: "Fraudster Database",
+      description: "Local database of known fraud numbers and tactics",
+      icon: UserX,
+      status: "active",
+    },
+    {
+      title: "SMS/Call Monitoring",
+      description: "Detects fraudulent messages and calls offline",
+      icon: MessageSquare,
+      status: "active",
+    },
+    {
+      title: "Offline ML Models",
+      description: "Machine learning fraud detection works without internet",
+      icon: Activity,
+      status: mlAnalysisActive ? "active" : "inactive",
+    },
+  ]
+
+  const simulateFraudDetection = (code: string, amount?: string) => {
+    const alerts: FraudAlert[] = []
+
+    // SIM Swap Detection
+    if (Math.random() > 0.8) {
+      setSimSwapDetected(true)
+      alerts.push({
+        id: Date.now().toString(),
+        type: "sim_swap",
+        severity: "critical",
+        message: "SIM swap detected! Verify your identity before proceeding.",
+        timestamp: new Date(),
+        resolved: false,
+      })
     }
+
+    // Pattern Analysis
+    if (amount && Number.parseInt(amount) > 500) {
+      alerts.push({
+        id: (Date.now() + 1).toString(),
+        type: "unusual_pattern",
+        severity: "high",
+        message: `Unusual transaction amount: $${amount}. This exceeds your normal pattern.`,
+        timestamp: new Date(),
+        resolved: false,
+      })
+    }
+
+    // Multiple small transactions
+    if (amount && Number.parseInt(amount) < 50 && fraudAlerts.filter((a) => a.type === "unusual_pattern").length >= 3) {
+      alerts.push({
+        id: (Date.now() + 2).toString(),
+        type: "unusual_pattern",
+        severity: "medium",
+        message: "Multiple small transactions detected. Possible fraud attempt.",
+        timestamp: new Date(),
+        resolved: false,
+      })
+    }
+
+    setFraudAlerts((prev) => [...prev, ...alerts])
   }
 
-  const handleRegister = () => {
-    if (input.trim()) {
-      setUserName(input)
-      setResponse(
-        `🎉 Welcome to our Super Power App!\n\nHi ${input}!\n\nYour USSD access is now active.\nYou can now use *123# anytime for:\n• Balance checks\n• Transaction verification\n• Fraud reporting\n• Account security\n\nStay safe with Face-to-Phone! 🛡️\n\nPress 0 for main menu`
-      )
-      setInput("")
-      // Store registration in localStorage for demo
-      localStorage.setItem("ussd_registered_user", input)
-    }
+  const handleSimulation = (code: string) => {
+    setUssdCode(code)
+    setIsSimulating(true)
+    setCurrentStep(0)
+
+    simulateFraudDetection(code, transactionAmount)
+
+    // Simulate USSD flow with security checks
+    setTimeout(() => {
+      setCurrentStep(1) // Security scan
+    }, 1000)
+
+    setTimeout(() => {
+      setCurrentStep(2) // ML Analysis
+    }, 2000)
+
+    setTimeout(() => {
+      setCurrentStep(3) // Pattern check
+    }, 3000)
+
+    setTimeout(() => {
+      setCurrentStep(4) // Authorization
+    }, 4000)
+
+    setTimeout(() => {
+      setIsSimulating(false)
+      setCurrentStep(0)
+    }, 5500)
   }
 
-  const handleVerifyTransaction = () => {
-    if (transactionId.trim()) {
-      const mockResults = [
+  const toggleCoercionMode = () => {
+    setIsCoercionMode(!isCoercionMode)
+    if (!isCoercionMode) {
+      setFraudAlerts((prev) => [
+        ...prev,
         {
-          status: "approved",
-          message: `✅ TRANSACTION APPROVED\n\nID: ${transactionId}\nAmount: KSh 5,000\nRecipient: John Doe\nStatus: Completed\nFraud Score: Low (2/10)\nBiometric: Face verified ✓\nTime: ${new Date().toLocaleString()}\n\nTransaction is safe! 🛡️`
+          id: Date.now().toString(),
+          type: "coercion",
+          severity: "critical",
+          message: "Coercion mode activated. Silent alarm sent to emergency contacts.",
+          timestamp: new Date(),
+          resolved: false,
         },
-        {
-          status: "pending", 
-          message: `⏳ TRANSACTION PENDING\n\nID: ${transactionId}\nAmount: KSh 25,000\nRecipient: Unknown Merchant\nStatus: Under Review\nFraud Score: High (8/10)\nReason: Unusual amount + time\n\nAction Required:\n• Biometric verification needed\n• Visit branch or use mobile app\n\nEstimated resolution: 2 hours`
-        },
-        {
-          status: "blocked",
-          message: `❌ TRANSACTION BLOCKED\n\nID: ${transactionId}\nAmount: KSh 50,000\nRecipient: Suspicious Account\nStatus: Fraud Prevention\nFraud Score: Critical (10/10)\n\nReasons:\n• Face verification failed\n• Device fingerprint mismatch\n• Unusual transaction pattern\n\nYour account is safe! 🛡️\nNo money was transferred.`
-        }
-      ]
-      const result = mockResults[Math.floor(Math.random() * mockResults.length)]
-      setResponse(result.message + "\n\nPress 0 for main menu")
-      setTransactionId("")
+      ])
     }
-  }
-
-  const handleSupportOption = (option: string) => {
-    const supportResponses = {
-      "1": "🤖 CHAT AGENT CONNECTED\n\nAgent Sarah: Hello! I'm here to help with your Face-to-Phone account.\n\nHow can I assist you today?\n• Account security\n• Transaction issues\n• Fraud concerns\n• Technical support\n\nType your message or press 0 for main menu",
-      "2": "📞 CALLBACK REQUESTED\n\nWe'll call you within 15 minutes at your registered number.\n\nCallback ID: CB-2024-001\nEstimated time: 10-15 minutes\nTopic: General Support\n\nYou can continue using USSD while waiting.\n\nPress 0 for main menu",
-      "3": "🚨 EMERGENCY LINE\n\nConnecting to emergency support...\n\nFor immediate fraud concerns:\n• Call: 0800-FRAUD-911\n• SMS: HELP to 40404\n• WhatsApp: +254-FRAUD-HELP\n\nAvailable 24/7 in English & Swahili\n\nPress 0 for main menu",
-      "4": "📍 BRANCH LOCATOR\n\nNearest branches:\n\n1. Westlands Branch\n   Distance: 2.3 km\n   Open: Mon-Fri 8AM-5PM\n   Services: Full service\n\n2. CBD Branch\n   Distance: 4.1 km\n   Open: Mon-Sat 8AM-6PM\n   Services: Full service\n\n3. Eastlands Branch\n   Distance: 6.8 km\n   Open: Mon-Fri 9AM-4PM\n   Services: Basic service\n\nPress 0 for main menu",
-      "5": "🛡️ FRAUD HELPLINE\n\nDedicated fraud support:\n\nHotline: 0800-NO-FRAUD\nWhatsApp: +254-FRAUD-STOP\nEmail: fraud@facephone.co.ke\n\nAvailable 24/7\nResponse time: < 5 minutes\n\nFor immediate threats:\n• Lock account: Press 5 from main menu\n• Report fraud: Press 4 from main menu\n\nPress 0 for main menu"
-    }
-    
-    setResponse(supportResponses[option as keyof typeof supportResponses] || "Invalid option. Press 0 for main menu")
-  }
-
-  const resetToMain = () => {
-    setCurrentMenu("main")
-    setResponse("")
-    setInput("")
-    setTransactionId("")
   }
 
   return (
-    <div className="min-h-screen animated-bg p-4">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => router.back()} className="p-2">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-bold text-foreground">USSD Simulator</h1>
-          <Badge variant="outline" className="glass border-primary/30 text-primary">
-            <Smartphone className="w-3 h-3 mr-1" />
-            *123#
-          </Badge>
+    <div
+      className={`min-h-screen transition-all duration-500 ${
+        isOffline
+          ? "bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900"
+          : "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
+      }`}
+    >
+      <SideMenu isOffline={isOffline} onToggleOffline={() => setIsOffline(!isOffline)} />
+      <OfflineBanner isOffline={isOffline} />
+
+      <div className="container mx-auto px-4 py-8 pt-20">
+        <div className="mb-8">
+          <h1 className={`text-4xl font-bold mb-4 ${isOffline ? "text-white" : "text-gray-900"}`}>
+            USSD Fraud Detection System
+          </h1>
+          <p className={`text-lg ${isOffline ? "text-gray-300" : "text-gray-600"}`}>
+            Advanced offline fraud detection for secure USSD transactions
+          </p>
         </div>
 
-        {/* Phone Simulator */}
-        <Card className="glass glow mb-6">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 glow pulse-glow">
-              <Smartphone className="w-8 h-8 text-white" />
-            </div>
-            <CardTitle className="text-lg">Face-to-Phone USSD</CardTitle>
-            <p className="text-sm text-muted-foreground">*123# Menu System</p>
-            {userName && (
-              <Badge variant="outline" className="glass border-secondary/30 text-secondary mt-2">
-                Registered: {userName}
-              </Badge>
-            )}
+        {fraudAlerts.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {fraudAlerts.slice(-3).map((alert) => (
+              <Alert
+                key={alert.id}
+                className={`
+                ${
+                  alert.severity === "critical"
+                    ? "border-red-500 bg-red-50"
+                    : alert.severity === "high"
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-yellow-500 bg-yellow-50"
+                }
+              `}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between">
+                  <span>{alert.message}</span>
+                  <Badge variant={alert.severity === "critical" ? "destructive" : "secondary"}>
+                    {alert.severity.toUpperCase()}
+                  </Badge>
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Enhanced USSD Simulator */}
+          <Card className={`glass ${isOffline ? "border-purple-500/30" : ""}`}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="w-5 h-5" />
+                USSD Fraud Detection Simulator
+                {isOffline && <WifiOff className="w-4 h-4 text-orange-400" />}
+              </CardTitle>
+              <CardDescription>Test USSD codes with real-time fraud detection</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-200">
+                <div>
+                  <h4 className="font-semibold text-red-800">Coercion Protection</h4>
+                  <p className="text-xs text-red-600">Activate if under duress</p>
+                </div>
+                <Button variant={isCoercionMode ? "destructive" : "outline"} size="sm" onClick={toggleCoercionMode}>
+                  {isCoercionMode ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {/* Phone Interface */}
+              <div
+                className={`p-6 rounded-lg border-2 ${
+                  isOffline ? "bg-slate-800/50 border-purple-500/30" : "bg-white/50 border-blue-200"
+                }`}
+              >
+                <div className="text-center mb-4">
+                  <div
+                    className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
+                      isOffline
+                        ? "bg-gradient-to-r from-purple-600 to-blue-600"
+                        : "bg-gradient-to-r from-blue-500 to-indigo-500"
+                    } glow`}
+                  >
+                    <Phone className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className={`mt-2 font-semibold ${isOffline ? "text-white" : "text-gray-900"}`}>
+                    Secure Mobile Phone
+                  </h3>
+                </div>
+
+                {/* USSD Input */}
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Enter USSD code (e.g., *123#)"
+                    value={ussdCode}
+                    onChange={(e) => setUssdCode(e.target.value)}
+                    className={`text-center text-lg ${isOffline ? "bg-slate-700 border-purple-500/30" : ""}`}
+                  />
+
+                  <Input
+                    placeholder="Transaction amount (optional)"
+                    value={transactionAmount}
+                    onChange={(e) => setTransactionAmount(e.target.value)}
+                    className={`text-center ${isOffline ? "bg-slate-700 border-purple-500/30" : ""}`}
+                  />
+
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {ussdFlow.map((flow, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSimulation(flow.code)}
+                        disabled={isSimulating}
+                        className={`text-xs ${
+                          isOffline ? "border-purple-500/30 hover:bg-purple-800/20" : ""
+                        } ${flow.risk === "high" ? "border-red-300" : flow.risk === "medium" ? "border-yellow-300" : ""}`}
+                      >
+                        {flow.code}
+                        <Badge variant="outline" className="ml-1 text-xs">
+                          {flow.risk}
+                        </Badge>
+                      </Button>
+                    ))}
+                  </div>
+
+                  {isSimulating && (
+                    <div
+                      className={`p-4 rounded-lg ${
+                        isOffline ? "bg-slate-700/50 border border-purple-500/30" : "bg-blue-50 border border-blue-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="animate-pulse w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className={`text-sm font-medium ${isOffline ? "text-green-400" : "text-green-600"}`}>
+                          Processing USSD: {ussdCode}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        <div className={`flex items-center gap-2 ${currentStep >= 1 ? "opacity-100" : "opacity-50"}`}>
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span>Security scan completed</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${currentStep >= 2 ? "opacity-100" : "opacity-50"}`}>
+                          <Brain className="w-4 h-4 text-blue-500" />
+                          <span>ML fraud analysis running</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${currentStep >= 3 ? "opacity-100" : "opacity-50"}`}>
+                          <TrendingUp className="w-4 h-4 text-purple-500" />
+                          <span>Pattern analysis complete</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${currentStep >= 4 ? "opacity-100" : "opacity-50"}`}>
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span>Transaction authorized</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* USSD Codes Reference */}
+              <div>
+                <h4 className={`font-semibold mb-3 ${isOffline ? "text-white" : "text-gray-900"}`}>
+                  Common USSD Codes
+                </h4>
+                <div className="space-y-2">
+                  {ussdFlow.map((flow, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        isOffline
+                          ? "bg-slate-800/30 border border-purple-500/20"
+                          : "bg-white/30 border border-blue-200/50"
+                      }`}
+                    >
+                      <div>
+                        <code className={`font-mono text-sm ${isOffline ? "text-purple-300" : "text-blue-600"}`}>
+                          {flow.code}
+                        </code>
+                        <p className={`text-xs ${isOffline ? "text-gray-400" : "text-gray-600"}`}>{flow.description}</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`glass ${isOffline ? "border-purple-500/30" : ""}`}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Advanced Fraud Protection
+              </CardTitle>
+              <CardDescription>Offline AI-powered fraud detection system</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {securityFeatures.map((feature, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg border ${
+                    isOffline ? "bg-slate-800/30 border-purple-500/20" : "bg-white/30 border-blue-200/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        feature.status === "alert"
+                          ? "bg-red-500"
+                          : feature.status === "active"
+                            ? (
+                                isOffline
+                                  ? "bg-gradient-to-r from-purple-600 to-blue-600"
+                                  : "bg-gradient-to-r from-blue-500 to-indigo-500"
+                              )
+                            : "bg-gray-400"
+                      } glow`}
+                    >
+                      <feature.icon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className={`font-semibold ${isOffline ? "text-white" : "text-gray-900"}`}>
+                          {feature.title}
+                        </h4>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            feature.status === "alert"
+                              ? "text-red-400 border-red-400"
+                              : feature.status === "active"
+                                ? (isOffline ? "text-green-400 border-green-400" : "text-green-600 border-green-600")
+                                : "text-gray-400 border-gray-400"
+                          }`}
+                        >
+                          {feature.status}
+                        </Badge>
+                      </div>
+                      <p className={`text-sm ${isOffline ? "text-gray-400" : "text-gray-600"}`}>
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <Button onClick={() => setShowFraudDatabase(!showFraudDatabase)} className="w-full" variant="outline">
+                <Users className="w-4 h-4 mr-2" />
+                {showFraudDatabase ? "Hide" : "Show"} Fraudster Database
+              </Button>
+
+              {showFraudDatabase && (
+                <div className="space-y-2">
+                  <h4 className={`font-semibold ${isOffline ? "text-white" : "text-gray-900"}`}>
+                    Known Fraudsters (Local Database)
+                  </h4>
+                  {mockFraudsters.map((fraudster, index) => (
+                    <div
+                      key={index}
+                      className={`p-3 rounded-lg border ${
+                        isOffline ? "bg-red-900/20 border-red-500/30" : "bg-red-50 border-red-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className={`font-medium ${isOffline ? "text-red-300" : "text-red-800"}`}>
+                            {fraudster.number}
+                          </p>
+                          <p className={`text-xs ${isOffline ? "text-red-400" : "text-red-600"}`}>
+                            {fraudster.name} • {fraudster.reported_count} reports
+                          </p>
+                        </div>
+                        <Badge variant="destructive" className="text-xs">
+                          {fraudster.risk_level}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div
+                className={`p-4 rounded-lg ${
+                  isOffline
+                    ? "bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30"
+                    : "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
+                }`}
+              >
+                <h4 className={`font-semibold mb-3 ${isOffline ? "text-white" : "text-gray-900"}`}>
+                  Fraud Detection Statistics
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${isOffline ? "text-green-400" : "text-green-600"}`}>99.9%</div>
+                    <div className={`text-xs ${isOffline ? "text-gray-400" : "text-gray-600"}`}>Fraud Detection</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${isOffline ? "text-blue-400" : "text-blue-600"}`}>&lt;1s</div>
+                    <div className={`text-xs ${isOffline ? "text-gray-400" : "text-gray-600"}`}>Response Time</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${isOffline ? "text-purple-400" : "text-purple-600"}`}>
+                      24/7
+                    </div>
+                    <div className={`text-xs ${isOffline ? "text-gray-400" : "text-gray-600"}`}>Offline Protection</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${isOffline ? "text-orange-400" : "text-orange-600"}`}>
+                      {fraudAlerts.length}
+                    </div>
+                    <div className={`text-xs ${isOffline ? "text-gray-400" : "text-gray-600"}`}>Active Alerts</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className={`mt-8 glass ${isOffline ? "border-purple-500/30" : ""}`}>
+          <CardHeader>
+            <CardTitle>Advanced USSD Fraud Detection Flow</CardTitle>
+            <CardDescription>How our offline AI system protects every transaction</CardDescription>
           </CardHeader>
           <CardContent>
-            {currentMenu === "main" && (
-              <div className="space-y-3">
-                <div className="text-center text-sm font-mono bg-gradient-to-r from-primary/10 to-secondary/10 p-3 rounded-lg border border-primary/20">
-                  *123# Face-to-Phone Menu
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { option: "1. Check Balance", icon: "💰" },
-                    { option: "2. Review Transaction Status", icon: "📊" },
-                    { option: "3. Verify Transaction (Enter Txn ID)", icon: "🔍" },
-                    { option: "4. Report Suspicious Activity", icon: "🚨" },
-                    { option: "5. Lock Account Now", icon: "🔒" },
-                    { option: "6. Register to Use USSD Flow", icon: "📝" },
-                    { option: "7. Request Support", icon: "🆘" },
-                  ].map((item, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="w-full justify-start text-left glass border-primary/20 hover:bg-primary/10 bg-transparent ripple-effect"
-                      onClick={() => handleMenuSelect((index + 1).toString())}
+            <div className="flex items-center justify-between overflow-x-auto pb-4">
+              {[
+                { step: "1", title: "User Input", desc: "USSD code entered", icon: Hash },
+                { step: "2", title: "SIM Verification", desc: "Check for SIM swap", icon: Phone },
+                { step: "3", title: "ML Analysis", desc: "AI fraud detection", icon: Brain },
+                { step: "4", title: "Pattern Check", desc: "Behavior analysis", icon: TrendingUp },
+                { step: "5", title: "Risk Assessment", desc: "Threat evaluation", icon: AlertTriangle },
+                { step: "6", title: "Authorization", desc: "Secure approval", icon: CheckCircle },
+                { step: "7", title: "Monitoring", desc: "Continuous watch", icon: Eye },
+              ].map((item, index) => (
+                <div key={index} className="flex items-center">
+                  <div className="flex flex-col items-center min-w-[100px]">
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        isOffline
+                          ? "bg-gradient-to-r from-purple-600 to-blue-600"
+                          : "bg-gradient-to-r from-blue-500 to-indigo-500"
+                      } glow`}
                     >
-                      <span className="mr-2">{item.icon}</span>
-                      {item.option}
-                    </Button>
-                  ))}
+                      <item.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className={`mt-2 text-sm font-semibold ${isOffline ? "text-white" : "text-gray-900"}`}>
+                      {item.title}
+                    </div>
+                    <div className={`text-xs text-center ${isOffline ? "text-gray-400" : "text-gray-600"}`}>
+                      {item.desc}
+                    </div>
+                  </div>
+                  {index < 6 && (
+                    <ArrowRight className={`mx-2 w-4 h-4 ${isOffline ? "text-purple-400" : "text-blue-400"}`} />
+                  )}
                 </div>
-              </div>
-            )}
-
-            {currentMenu === "register" && (
-              <div className="space-y-4">
-                <div className="text-sm font-mono bg-gradient-to-r from-secondary/10 to-accent/10 p-3 rounded-lg border border-secondary/20">
-                  📝 Register for USSD Access
-                </div>
-                <Input
-                  placeholder="Enter your full name"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  className="glass"
-                />
-                <div className="flex gap-2">
-                  <Button onClick={handleRegister} className="flex-1 bg-gradient-to-r from-primary to-secondary ripple-effect">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Register
-                  </Button>
-                  <Button variant="outline" onClick={resetToMain} className="glass">
-                    Back
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {currentMenu === "verify" && (
-              <div className="space-y-4">
-                <div className="text-sm font-mono bg-gradient-to-r from-accent/10 to-primary/10 p-3 rounded-lg border border-accent/20">
-                  🔍 Transaction Verification
-                </div>
-                <Input
-                  placeholder="Enter Transaction ID (e.g., TXN123456)"
-                  value={transactionId}
-                  onChange={(e) => setTransactionId(e.target.value)}
-                  className="glass"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleVerifyTransaction}
-                    className="flex-1 bg-gradient-to-r from-secondary to-accent ripple-effect"
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Verify
-                  </Button>
-                  <Button variant="outline" onClick={resetToMain} className="glass">
-                    Back
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {currentMenu === "support" && (
-              <div className="space-y-3">
-                <div className="text-sm font-mono bg-gradient-to-r from-destructive/10 to-secondary/10 p-3 rounded-lg border border-destructive/20">
-                  🆘 Support Options
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { label: "1. Chat with Agent", icon: Phone, color: "primary" },
-                    { label: "2. Request Callback", icon: Phone, color: "secondary" },
-                    { label: "3. Emergency Line", icon: AlertTriangle, color: "destructive" },
-                    { label: "4. Branch Locator", icon: Shield, color: "accent" },
-                    { label: "5. Fraud Helpline", icon: Lock, color: "destructive" },
-                  ].map((option, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className={`w-full justify-start text-left glass border-${option.color}/20 hover:bg-${option.color}/10 bg-transparent ripple-effect`}
-                      onClick={() => handleSupportOption((index + 1).toString())}
-                    >
-                      <option.icon className="w-4 h-4 mr-2" />
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
-                <Button variant="outline" onClick={resetToMain} className="w-full glass">
-                  0. Back to Main Menu
-                </Button>
-              </div>
-            )}
-
-            {currentMenu === "transactions" && (
-              <div className="space-y-3">
-                <div className="text-sm font-mono bg-gradient-to-r from-secondary/10 to-primary/10 p-3 rounded-lg border border-secondary/20">
-                  📊 Transaction History
-                </div>
-                <Button variant="outline" onClick={resetToMain} className="w-full glass">
-                  0. Back to Main Menu
-                </Button>
-              </div>
-            )}
-
-            {/* Response Display */}
-            {response && (
-              <div className="mt-4 p-4 bg-gradient-to-r from-secondary/10 to-accent/10 border border-secondary/20 rounded-lg slide-in">
-                <div className="flex items-start space-x-2">
-                  <Shield className="w-5 h-5 text-secondary mt-0.5 flex-shrink-0" />
-                  <div className="text-sm font-mono whitespace-pre-line text-secondary-foreground">{response}</div>
-                </div>
-                {response.includes("Press 0 for main menu") && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={resetToMain} 
-                    className="mt-3 glass border-primary/30 text-primary"
-                  >
-                    0. Main Menu
-                  </Button>
-                )}
-              </div>
-            )}
+              ))}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Quick Emergency Actions */}
-        <div className="grid grid-cols-2 gap-4">
-          <Button
-            variant="outline"
-            className="glass border-destructive/30 text-destructive hover:bg-destructive/10 bg-transparent ripple-effect"
-            onClick={() => handleMenuSelect("5")}
-          >
-            <Lock className="w-4 h-4 mr-2" />
-            🚨 Emergency Lock
-          </Button>
-          <Button
-            variant="outline"
-            className="glass border-accent/30 text-accent hover:bg-accent/10 bg-transparent ripple-effect"
-            onClick={() => handleMenuSelect("4")}
-          >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            📢 Report Fraud
-          </Button>
-        </div>
-
-        {/* Demo Info */}
-        <Card className="glass mt-6 border-primary/20">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <Badge variant="outline" className="glass border-primary/30 text-primary mb-2">
-                Demo Mode
-              </Badge>
-              <p className="text-xs text-muted-foreground">
-                This USSD simulator demonstrates offline-capable fraud prevention features for feature phones across Africa.
-              </p>
+        <Card className={`mt-8 glass ${isOffline ? "border-purple-500/30" : ""}`}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              Offline AI Capabilities
+            </CardTitle>
+            <CardDescription>How our system works without internet connection</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className={`font-semibold ${isOffline ? "text-white" : "text-gray-900"}`}>
+                  Local Machine Learning Models
+                </h4>
+                <ul className={`space-y-2 text-sm ${isOffline ? "text-gray-300" : "text-gray-600"}`}>
+                  <li>• Pattern recognition algorithms stored locally</li>
+                  <li>• Behavioral analysis without cloud dependency</li>
+                  <li>• Real-time fraud scoring on device</li>
+                  <li>• Continuous learning from user patterns</li>
+                </ul>
+              </div>
+              <div className="space-y-4">
+                <h4 className={`font-semibold ${isOffline ? "text-white" : "text-gray-900"}`}>Offline Data Storage</h4>
+                <ul className={`space-y-2 text-sm ${isOffline ? "text-gray-300" : "text-gray-600"}`}>
+                  <li>• Local fraudster database with 10,000+ entries</li>
+                  <li>• Transaction history analysis</li>
+                  <li>• SMS/Call pattern recognition</li>
+                  <li>• Emergency contact integration</li>
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>

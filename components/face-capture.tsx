@@ -17,14 +17,16 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [faceDetected, setFaceDetected] = useState(false)
+  const [isStable, setIsStable] = useState(false)
 
   const startCamera = useCallback(async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: 640,
-          height: 480,
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
           facingMode: "user",
+          frameRate: { ideal: 30, min: 15 },
         },
       })
 
@@ -33,9 +35,12 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream
+        videoRef.current.onloadedmetadata = () => {
+          setTimeout(() => setIsStable(true), 1000)
+        }
       }
     } catch (error) {
-      console.error("[FaceCapture] Camera access denied:", error)
+      console.error("Camera access denied:", error)
       setHasPermission(false)
     }
   }, [])
@@ -44,6 +49,7 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop())
       setStream(null)
+      setIsStable(false)
     }
   }, [stream])
 
@@ -56,27 +62,23 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
 
     if (!context) return
 
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+    canvas.width = video.videoWidth || 1280
+    canvas.height = video.videoHeight || 720
 
-    // Draw video frame to canvas
+    context.filter = "contrast(1.1) brightness(1.05) saturate(1.1)"
     context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    // Convert to base64
-    const imageData = canvas.toDataURL("image/jpeg", 0.8)
+    const imageData = canvas.toDataURL("image/jpeg", 0.92)
     setCapturedImage(imageData)
 
-    // Simulate face detection
-    setTimeout(() => {
-      setFaceDetected(true)
-      onCapture(imageData)
-    }, 500)
+    setFaceDetected(true)
+    onCapture(imageData)
   }, [onCapture])
 
   const retakePhoto = useCallback(() => {
     setCapturedImage(null)
     setFaceDetected(false)
+    setIsStable(false)
     startCamera()
   }, [startCamera])
 
@@ -113,16 +115,24 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
       <div className="relative bg-black rounded-lg overflow-hidden">
         {!capturedImage ? (
           <>
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto" />
-            {/* Face detection overlay */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-64 h-80 border-2 border-primary rounded-lg opacity-50">
-                <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-primary"></div>
-                <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-primary"></div>
-                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-primary"></div>
-                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-primary"></div>
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto transform scale-x-[-1]" />
+            {isStable && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-64 h-80 border-2 border-primary rounded-lg opacity-70 transition-opacity duration-300">
+                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
+                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
+                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
+                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 border border-primary rounded-full opacity-50"></div>
+                </div>
               </div>
-            </div>
+            )}
+            {isStable && (
+              <div className="absolute top-4 left-4 bg-green-500/80 text-white px-3 py-1 rounded-full text-sm flex items-center space-x-1">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <span>Ready</span>
+              </div>
+            )}
           </>
         ) : (
           <div className="relative">
@@ -130,7 +140,7 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
             {faceDetected && (
               <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm flex items-center space-x-1">
                 <Check className="w-4 h-4" />
-                <span>Face Detected</span>
+                <span>Face Captured</span>
               </div>
             )}
           </div>
@@ -145,7 +155,9 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
         <Camera className="h-4 w-4" />
         <AlertDescription>
           {!capturedImage
-            ? "Position your face within the frame and ensure good lighting. Click capture when ready."
+            ? isStable
+              ? "Position your face within the frame and ensure good lighting. Click capture when ready."
+              : "Initializing camera... Please wait."
             : "Face captured successfully! The system is processing your biometric data."}
         </AlertDescription>
       </Alert>
@@ -153,9 +165,9 @@ export function FaceCapture({ onCapture, isProcessing }: FaceCaptureProps) {
       {/* Controls */}
       <div className="flex justify-center space-x-4">
         {!capturedImage ? (
-          <Button onClick={captureImage} disabled={isProcessing} size="lg" className="px-8">
+          <Button onClick={captureImage} disabled={isProcessing || !isStable} size="lg" className="px-8">
             <Camera className="w-4 h-4 mr-2" />
-            Capture Face
+            {isStable ? "Capture Face" : "Preparing..."}
           </Button>
         ) : (
           <Button

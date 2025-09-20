@@ -4,209 +4,142 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Shield, Lock, Phone, X, Fingerprint, AlertTriangle, Eye } from "lucide-react"
+import { Shield, Lock, Phone, X, Fingerprint } from "lucide-react"
 
 interface AIHeadcardProps {
   isVisible: boolean
   onClose: () => void
-  alertType: "call" | "suspicious" | "transaction" | "sms" | "sim_swap"
   userName?: string
-  language?: "en" | "sw"
+  alertType: "suspicious" | "fraud" | "safe" | "call"
+  message: string
 }
 
-export function AIHeadcard({ 
-  isVisible, 
-  onClose, 
-  alertType, 
-  userName = "User",
-  language = "en" 
-}: AIHeadcardProps) {
+export function AIHeadcard({ isVisible, onClose, userName = "User", alertType, message }: AIHeadcardProps) {
   const [isAnimating, setIsAnimating] = useState(false)
-  const [shieldPulse, setShieldPulse] = useState(true)
 
   useEffect(() => {
     if (isVisible) {
       setIsAnimating(true)
-      // Pulse animation for shield
-      const interval = setInterval(() => {
-        setShieldPulse(prev => !prev)
-      }, 1000)
-      return () => clearInterval(interval)
     }
   }, [isVisible])
 
   if (!isVisible) return null
 
-  const getAlertContent = () => {
-    const content = {
-      en: {
-        call: {
-          title: `Karibu, ${userName}. Call in progress.`,
-          message: "Tip: Never share OTPs during calls. Press LOCK if unsure.",
-          bgColor: "bg-accent/10 border-accent/20",
-          iconColor: "text-accent",
-          avatar: "🛡️"
-        },
-        suspicious: {
-          title: `Karibu, ${userName}. Suspicious activity detected.`,
-          message: "Tip: Real banks never ask for OTPs. Press LOCK if unsure.",
-          bgColor: "bg-destructive/10 border-destructive/20",
-          iconColor: "text-destructive",
-          avatar: "🕵️‍♂️"
-        },
-        transaction: {
-          title: `Karibu, ${userName}. High-value transaction detected.`,
-          message: "Tip: Use fingerprint for high-value transfers.",
-          bgColor: "bg-primary/10 border-primary/20",
-          iconColor: "text-primary",
-          avatar: "💳"
-        },
-        sms: {
-          title: `Karibu, ${userName}. Suspicious SMS received.`,
-          message: "Tip: If you see a SIM swap alert, lock your account.",
-          bgColor: "bg-secondary/10 border-secondary/20",
-          iconColor: "text-secondary",
-          avatar: "📱"
-        },
-        sim_swap: {
-          title: `Karibu, ${userName}. SIM swap detected!`,
-          message: "URGENT: Your SIM card may have been cloned. Lock account now!",
-          bgColor: "bg-destructive/20 border-destructive/40",
-          iconColor: "text-destructive",
-          avatar: "⚠️"
+  const getAlertConfig = () => {
+    switch (alertType) {
+      case "suspicious":
+        return {
+          color: "border-yellow-500/50 bg-yellow-500/10",
+          iconColor: "text-yellow-500",
+          badgeColor: "bg-yellow-500/20 text-yellow-500",
+          icon: Shield,
         }
-      },
-      sw: {
-        call: {
-          title: `Karibu, ${userName}. Simu inaendelea.`,
-          message: "Dokezo: Usishiriki OTP wakati wa simu. Bonyeza LOCK ukiwa na wasiwasi.",
-          bgColor: "bg-accent/10 border-accent/20",
-          iconColor: "text-accent",
-          avatar: "🛡️"
-        },
-        suspicious: {
-          title: `Karibu, ${userName}. Shughuli za mashaka zimegunduliwa.`,
-          message: "Dokezo: Benki halisi haziulizi OTP. Bonyeza LOCK ukiwa na wasiwasi.",
-          bgColor: "bg-destructive/10 border-destructive/20",
-          iconColor: "text-destructive",
-          avatar: "🕵️‍♂️"
-        },
-        transaction: {
-          title: `Karibu, ${userName}. Muamala wa thamani kubwa umegunduliwa.`,
-          message: "Dokezo: Tumia kidole kwa uhamisho wa pesa nyingi.",
-          bgColor: "bg-primary/10 border-primary/20",
-          iconColor: "text-primary",
-          avatar: "💳"
-        },
-        sms: {
-          title: `Karibu, ${userName}. SMS ya mashaka imepokelewa.`,
-          message: "Dokezo: Ukiona onyo la SIM swap, funga akaunti yako.",
-          bgColor: "bg-secondary/10 border-secondary/20",
-          iconColor: "text-secondary",
-          avatar: "📱"
-        },
-        sim_swap: {
-          title: `Karibu, ${userName}. SIM swap imegunduliwa!`,
-          message: "HARAKA: SIM yako inaweza kuwa imenakiliwa. Funga akaunti sasa!",
-          bgColor: "bg-destructive/20 border-destructive/40",
-          iconColor: "text-destructive",
-          avatar: "⚠️"
+      case "fraud":
+        return {
+          color: "border-red-500/50 bg-red-500/10",
+          iconColor: "text-red-500",
+          badgeColor: "bg-red-500/20 text-red-500",
+          icon: Shield,
         }
-      }
+      case "safe":
+        return {
+          color: "border-green-500/50 bg-green-500/10",
+          iconColor: "text-green-500",
+          badgeColor: "bg-green-500/20 text-green-500",
+          icon: Shield,
+        }
+      case "call":
+        return {
+          color: "border-blue-500/50 bg-blue-500/10",
+          iconColor: "text-blue-500",
+          badgeColor: "bg-blue-500/20 text-blue-500",
+          icon: Phone,
+        }
     }
-
-    return content[language][alertType] || content.en[alertType]
   }
 
-  const content = getAlertContent()
-
-  const quickActions = language === "en" ? [
-    { label: "LOCK ACCOUNT", icon: Lock, color: "destructive", action: "lock" },
-    { label: "VERIFY", icon: Fingerprint, color: "primary", action: "verify" },
-    { label: "CALL SUPPORT", icon: Phone, color: "accent", action: "support" }
-  ] : [
-    { label: "FUNGA AKAUNTI", icon: Lock, color: "destructive", action: "lock" },
-    { label: "THIBITISHA", icon: Fingerprint, color: "primary", action: "verify" },
-    { label: "PIGA MSAADA", icon: Phone, color: "accent", action: "support" }
-  ]
-
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case "lock":
-        alert(language === "en" ? "Account locked for security!" : "Akaunti imefungwa kwa usalama!")
-        break
-      case "verify":
-        alert(language === "en" ? "Biometric verification started..." : "Uthibitisho wa kibayolojia umeanza...")
-        break
-      case "support":
-        alert(language === "en" ? "Connecting to support..." : "Inaunganisha na msaada...")
-        break
-    }
-    onClose()
-  }
+  const config = getAlertConfig()
+  const IconComponent = config.icon
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-50 flex justify-center">
-      <Card className={`glass ${content.bgColor} max-w-sm w-full ${isAnimating ? "slide-in" : ""} glow ${alertType === "sim_swap" ? "hacker-alert" : ""}`}>
+    <div className="fixed top-4 left-4 right-4 z-50 pointer-events-auto">
+      <Card className={`glass ${config.color} border-2 ${isAnimating ? "animate-slide-down" : ""} shadow-2xl`}>
         <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center space-x-3">
-              {/* Animated ShieldBot Avatar */}
-              <div
-                className={`w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center glow ${shieldPulse ? "pulse-glow" : ""} transition-all duration-1000`}
-              >
-                {alertType === "suspicious" || alertType === "sim_swap" ? (
-                  <div className="text-xl">{content.avatar}</div>
-                ) : (
-                  <Shield className={`w-6 h-6 text-white ${shieldPulse ? "animate-pulse" : ""}`} />
+          <div className="flex items-start space-x-3">
+            {/* AI Avatar */}
+            <div className={`w-12 h-12 rounded-full ${config.color} flex items-center justify-center animate-pulse`}>
+              <IconComponent className={`w-6 h-6 ${config.iconColor}`} />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge className={`${config.badgeColor} border-0`}>ShieldBot AI</Badge>
+                <Button variant="ghost" size="sm" onClick={onClose} className="h-6 w-6 p-0 hover:bg-white/10">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-1">
+                <div className="font-medium text-foreground">
+                  Karibu, {userName}.{" "}
+                  {alertType === "suspicious"
+                    ? "Suspicious activity detected."
+                    : alertType === "fraud"
+                      ? "Fraud attempt blocked."
+                      : alertType === "safe"
+                        ? "Transaction verified safe."
+                        : "Incoming call detected."}
+                </div>
+                <div className="text-sm text-muted-foreground">{message}</div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {alertType === "suspicious" && (
+                  <>
+                    <Button size="sm" variant="destructive" className="text-xs">
+                      <Lock className="w-3 h-3 mr-1" />
+                      LOCK ACCOUNT
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs glass border-primary/30 bg-transparent">
+                      <Fingerprint className="w-3 h-3 mr-1" />
+                      VERIFY
+                    </Button>
+                  </>
                 )}
+                {alertType === "fraud" && (
+                  <Button size="sm" variant="destructive" className="text-xs">
+                    <Lock className="w-3 h-3 mr-1" />
+                    ACCOUNT LOCKED
+                  </Button>
+                )}
+                {alertType === "call" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs glass border-green-500/30 text-green-500 bg-transparent"
+                    >
+                      <Phone className="w-3 h-3 mr-1" />
+                      ANSWER
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs glass border-red-500/30 text-red-500 bg-transparent"
+                    >
+                      DECLINE
+                    </Button>
+                  </>
+                )}
+                <Button size="sm" variant="outline" className="text-xs glass border-accent/30 bg-transparent">
+                  <Phone className="w-3 h-3 mr-1" />
+                  CALL SUPPORT
+                </Button>
               </div>
-              <div className="flex-1">
-                <Badge variant="outline" className="glass border-primary/30 text-primary text-xs mb-1">
-                  ShieldBot AI
-                </Badge>
-                <p className="text-sm font-medium text-foreground">{content.title}</p>
-              </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} className="p-1 h-auto">
-              <X className="w-4 h-4" />
-            </Button>
           </div>
-
-          <p className="text-sm text-muted-foreground mb-4">{content.message}</p>
-
-          {/* Threat Level Indicator */}
-          {(alertType === "suspicious" || alertType === "sim_swap") && (
-            <div className="flex items-center space-x-2 mb-4 p-2 bg-destructive/10 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-destructive animate-pulse" />
-              <span className="text-xs font-medium text-destructive">
-                {language === "en" ? "HIGH THREAT DETECTED" : "TISHIO KUBWA LIMEGUNDULIWA"}
-              </span>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="flex flex-wrap gap-2">
-            {quickActions.map((action, index) => (
-              <Button
-                key={index}
-                size="sm"
-                variant="outline"
-                className={`glass border-${action.color}/30 text-${action.color} hover:bg-${action.color}/10 text-xs bg-transparent ripple-effect`}
-                onClick={() => handleQuickAction(action.action)}
-              >
-                <action.icon className="w-3 h-3 mr-1" />
-                {action.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* Anti-hack imagery for threats */}
-          {(alertType === "suspicious" || alertType === "sim_swap") && (
-            <div className="mt-3 flex items-center justify-center">
-              <div className="w-full h-1 bg-gradient-to-r from-destructive/20 via-destructive/60 to-destructive/20 rounded-full animate-pulse"></div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

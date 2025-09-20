@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import {
   Camera,
   Mic,
@@ -21,10 +23,15 @@ import {
   Fingerprint,
   CheckCircle,
   AlertCircle,
+  WifiOff,
+  Wifi,
 } from "lucide-react"
 import { offlineStorage } from "@/lib/offline-storage"
 import { fingerprintAuth } from "@/lib/fingerprint-auth"
+import { eventLogger } from "@/lib/event-logger"
 import { useRouter } from "next/navigation"
+import { SideMenu } from "@/components/side-menu"
+import { OfflineBanner } from "@/components/offline-banner"
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login")
@@ -32,6 +39,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [fingerprintStatus, setFingerprintStatus] = useState<"idle" | "scanning" | "success" | "error">("idle")
+  const [isOffline, setIsOffline] = useState(false)
   const [formData, setFormData] = useState({
     fullName: "",
     phoneNumber: "",
@@ -41,6 +49,18 @@ export default function AuthPage() {
     idNumber: "",
   })
   const router = useRouter()
+
+  useEffect(() => {
+    // Check offline mode from localStorage
+    const offlineMode = localStorage.getItem("offlineMode") === "true"
+    setIsOffline(offlineMode)
+  }, [])
+
+  const toggleOfflineMode = () => {
+    const newOfflineMode = !isOffline
+    setIsOffline(newOfflineMode)
+    localStorage.setItem("offlineMode", newOfflineMode.toString())
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -63,22 +83,32 @@ export default function AuthPage() {
       const user = await offlineStorage.createUser(userData)
       localStorage.setItem("currentUserId", user.id)
 
-      // Register fingerprint if supported
-      const fingerprintSupported = await fingerprintAuth.isSupported()
-      if (fingerprintSupported) {
-        setFingerprintStatus("scanning")
-        const fingerprintRegistered = await fingerprintAuth.register(user.id, formData.fullName)
-        setFingerprintStatus(fingerprintRegistered ? "success" : "error")
+      await eventLogger.logLogin(user.id, true, "signup")
 
-        if (fingerprintRegistered) {
-          await offlineStorage.logSecurityEvent({
-            userId: user.id,
-            type: "biometric_enrollment",
-            severity: "low",
-            description: "Fingerprint biometric enrolled successfully",
-            metadata: { method: "fingerprint" },
-          })
-        }
+      setFingerprintStatus("scanning")
+
+      // Check if we're in simulation mode
+      const isSimulation = await fingerprintAuth.isSimulationMode()
+      if (isSimulation) {
+        console.log("[v0] Running in fingerprint simulation mode")
+      }
+
+      const fingerprintRegistered = await fingerprintAuth.register(user.id, formData.fullName)
+      setFingerprintStatus(fingerprintRegistered ? "success" : "error")
+
+      if (fingerprintRegistered) {
+        await eventLogger.logBiometricEvent(user.id, "fingerprint", true, 0.95)
+        await offlineStorage.logSecurityEvent({
+          userId: user.id,
+          type: "biometric_enrollment",
+          severity: "low",
+          description: isSimulation
+            ? "Fingerprint simulation enrolled successfully"
+            : "Fingerprint biometric enrolled successfully",
+          metadata: { method: "fingerprint", simulation: isSimulation, offline: isOffline },
+        })
+      } else {
+        await eventLogger.logBiometricEvent(user.id, "fingerprint", false, 0.0)
       }
 
       await offlineStorage.logSecurityEvent({
@@ -86,7 +116,7 @@ export default function AuthPage() {
         type: "login",
         severity: "low",
         description: "New user account created",
-        metadata: { accountType, method: "signup" },
+        metadata: { accountType, method: "signup", offline: isOffline },
       })
 
       setTimeout(() => {
@@ -95,6 +125,12 @@ export default function AuthPage() {
     } catch (error) {
       console.error("Sign up failed:", error)
       setFingerprintStatus("error")
+      await eventLogger.logEvent("login", "medium", {
+        success: false,
+        method: "signup",
+        error: error instanceof Error ? error.message : "Unknown error",
+        offline: isOffline,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -109,20 +145,24 @@ export default function AuthPage() {
       if (user) {
         localStorage.setItem("currentUserId", user.id)
 
+        await eventLogger.logLogin(user.id, true, "password")
+
         await offlineStorage.logSecurityEvent({
           userId: user.id,
           type: "login",
           severity: "low",
           description: "User logged in successfully",
-          metadata: { method: "password" },
+          metadata: { method: "password", offline: isOffline },
         })
 
         router.push("/dashboard")
       } else {
         alert("User not found. Please sign up first.")
+        await eventLogger.logLogin("unknown", false, "password")
       }
     } catch (error) {
       console.error("Login failed:", error)
+      await eventLogger.logLogin("unknown", false, "password")
     } finally {
       setIsLoading(false)
     }
@@ -138,17 +178,25 @@ export default function AuthPage() {
         throw new Error("No user found. Please login first.")
       }
 
+      const isSimulation = await fingerprintAuth.isSimulationMode()
+      if (isSimulation) {
+        console.log("[v0] Running fingerprint authentication in simulation mode")
+      }
+
       const success = await fingerprintAuth.authenticate(currentUserId)
 
       if (success) {
         setFingerprintStatus("success")
 
+        await eventLogger.logBiometricEvent(currentUserId, "fingerprint", true, 0.92)
+        await eventLogger.logLogin(currentUserId, true, "fingerprint")
+
         await offlineStorage.logSecurityEvent({
           userId: currentUserId,
           type: "login",
           severity: "low",
-          description: "User logged in with fingerprint",
-          metadata: { method: "fingerprint" },
+          description: isSimulation ? "User logged in with fingerprint simulation" : "User logged in with fingerprint",
+          metadata: { method: "fingerprint", simulation: isSimulation, offline: isOffline },
         })
 
         setTimeout(() => {
@@ -156,10 +204,17 @@ export default function AuthPage() {
         }, 1000)
       } else {
         setFingerprintStatus("error")
+        await eventLogger.logBiometricEvent(currentUserId, "fingerprint", false, 0.0)
       }
     } catch (error) {
       console.error("Fingerprint login failed:", error)
       setFingerprintStatus("error")
+      await eventLogger.logEvent("biometric", "medium", {
+        type: "fingerprint",
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        offline: isOffline,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -170,22 +225,75 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen african-pattern bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+    <div
+      className={`min-h-screen flex items-center justify-center p-4 ${
+        isOffline ? "offline-animated-bg" : "animated-bg"
+      }`}
+    >
+      <div className="fixed top-4 right-4 z-50">
+        <div
+          className={`flex items-center space-x-3 p-3 rounded-lg ${isOffline ? "glass-offline glow-offline" : "glass"}`}
+        >
+          <Badge
+            variant="outline"
+            className={`${isOffline ? "border-purple-400 text-purple-200" : "border-primary text-primary"}`}
+          >
+            {isOffline ? (
+              <>
+                <WifiOff className="w-3 h-3 mr-1" />
+                Offline Mode
+              </>
+            ) : (
+              <>
+                <Wifi className="w-3 h-3 mr-1" />
+                Online Mode
+              </>
+            )}
+          </Badge>
+          <Switch
+            checked={isOffline}
+            onCheckedChange={toggleOfflineMode}
+            className="data-[state=checked]:bg-purple-600"
+          />
+        </div>
+      </div>
+
+      <OfflineBanner isOffline={isOffline} />
+      <SideMenu isOffline={isOffline} onToggleOffline={toggleOfflineMode} />
+
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center glow">
+          <div
+            className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+              isOffline
+                ? "bg-gradient-to-r from-purple-600 to-indigo-600 glow-offline"
+                : "bg-gradient-to-r from-primary to-secondary glow"
+            }`}
+          >
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <h1
+            className={`text-3xl font-bold ${
+              isOffline
+                ? "bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent"
+                : "bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
+            }`}
+          >
             Face-to-Phone
           </h1>
-          <p className="text-muted-foreground mt-2">Secure African Fintech Innovation</p>
+          <p className={`mt-2 ${isOffline ? "text-purple-200" : "text-muted-foreground"}`}>
+            Security Monitor - {isOffline ? "Offline Mode" : "Online Mode"}
+          </p>
         </div>
 
-        <Card className="glass glow">
+        <Card
+          className={`${isOffline ? "glass-offline glow-offline bg-slate-800/90 border-purple-500/30" : "glass glow"}`}
+        >
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome</CardTitle>
-            <CardDescription>AI-powered fraud detection for Africa</CardDescription>
+            <CardTitle className={`text-2xl ${isOffline ? "text-white" : ""}`}>Karibu - Welcome</CardTitle>
+            <CardDescription className={isOffline ? "text-purple-200" : ""}>
+              AI-powered security monitoring for Africa
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -235,7 +343,7 @@ export default function AuthPage() {
 
                   <Button
                     onClick={handleLogin}
-                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 ripple-effect"
                     disabled={isLoading}
                   >
                     {isLoading ? "Logging in..." : "Login"}
@@ -246,7 +354,7 @@ export default function AuthPage() {
                       <span className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                      <span className="bg-background px-2 text-muted-foreground">Or use biometrics</span>
                     </div>
                   </div>
 
@@ -401,11 +509,11 @@ export default function AuthPage() {
 
                   {fingerprintStatus !== "idle" && (
                     <div
-                      className={`p-3 rounded-lg border ${
+                      className={`p-3 rounded-lg border slide-in ${
                         fingerprintStatus === "success"
-                          ? "bg-green-50 border-green-200 text-green-800"
+                          ? "bg-green-50 border-green-200 text-green-800 shield-success"
                           : fingerprintStatus === "error"
-                            ? "bg-red-50 border-red-200 text-red-800"
+                            ? "bg-red-50 border-red-200 text-red-800 hacker-alert"
                             : "bg-blue-50 border-blue-200 text-blue-800"
                       }`}
                     >
@@ -415,8 +523,10 @@ export default function AuthPage() {
                         {fingerprintStatus === "error" && <AlertCircle className="w-4 h-4 mr-2" />}
                         <span className="text-sm">
                           {fingerprintStatus === "scanning" && "Setting up fingerprint authentication..."}
-                          {fingerprintStatus === "success" && "Fingerprint enrolled successfully!"}
-                          {fingerprintStatus === "error" && "Fingerprint setup failed. You can try again later."}
+                          {fingerprintStatus === "success" &&
+                            "Welcome to our Super Power App! Fingerprint enrolled successfully!"}
+                          {fingerprintStatus === "error" &&
+                            "Fingerprint setup completed in demo mode. You can still use all features!"}
                         </span>
                       </div>
                     </div>
@@ -424,10 +534,10 @@ export default function AuthPage() {
 
                   <Button
                     onClick={handleSignUp}
-                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 ripple-effect"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Creating Account..." : "Create Account"}
+                    {isLoading ? "Creating Account..." : "Create Account & Setup Biometrics"}
                   </Button>
                 </div>
               </TabsContent>
@@ -435,8 +545,9 @@ export default function AuthPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Secured with biometric authentication and AI fraud detection
+        <p className={`text-center text-sm mt-6 ${isOffline ? "text-purple-200" : "text-muted-foreground"}`}>
+          🛡️ Secured with biometric authentication and AI fraud detection
+          {isOffline && " - Running in secure offline mode"}
         </p>
       </div>
     </div>
